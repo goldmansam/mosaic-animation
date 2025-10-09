@@ -136,16 +136,16 @@
 
   <div id="controls">
     <div class="control-group">
-      <label>Pixel Size: <span id="pixelSizeVal">2</span>px</label>
-      <input type="range" id="pixelSize" min="1" max="10" value="2">
+      <label>Pixel Size: <span id="pixelSizeVal">0.1</span>px</label>
+      <input type="range" id="pixelSize" min="0.1" max="10" step="0.1" value="0.1">
     </div>
     <div class="control-group">
-      <label>Pixel Gap: <span id="pixelGapVal">0.3</span></label>
-      <input type="range" id="pixelGap" min="0" max="1" step="0.05" value="0.3">
+      <label>Pixel Gap: <span id="pixelGapVal">0.50</span></label>
+      <input type="range" id="pixelGap" min="0" max="1" step="0.05" value="0.5">
     </div>
     <div class="control-group">
-      <label>Zoom Duration: <span id="durationVal">10</span>s</label>
-      <input type="range" id="duration" min="5" max="30" value="10">
+      <label>Zoom Duration: <span id="durationVal">20</span>s</label>
+      <input type="range" id="duration" min="5" max="60" value="20">
     </div>
     <div class="btn-group">
       <button class="btn" id="playPauseBtn">Pause</button>
@@ -166,13 +166,14 @@
 
   <script>
     // ============ CONFIGURATION ============
-    let ZOOM_OUT_DURATION = 10000;     // ms - time to zoom out from pixels to normal image
+    let ZOOM_IN_DURATION = 20000;      // ms - time to zoom in to pixels
+    let ZOOM_OUT_DURATION = 20000;     // ms - time to zoom out from pixels to normal image
     let MIN_ZOOM = 0.3;                // Zoomed out - normal image view
     let MAX_ZOOM = 15.0;               // Zoomed in - individual pixels visible
 
     // Visual parameters
-    let PIXEL_SIZE = 2;                // Size of each pixel square in image space
-    let PIXEL_GAP = 0.3;               // Gap between pixels (0 = no gap, 1 = full gap)
+    let PIXEL_SIZE = 0.1;              // Size of each pixel square in image space
+    let PIXEL_GAP = 0.5;               // Gap between pixels (0 = no gap, 1 = full gap)
 
     // ============ STATE ============
     const canvas = document.getElementById('canvas');
@@ -388,11 +389,16 @@
       if (!isPlaying) return;
 
       const elapsed = Date.now() - animStartTime;
+      const totalDuration = ZOOM_OUT_DURATION + ZOOM_IN_DURATION;
 
       if (elapsed < ZOOM_OUT_DURATION) {
         // Zoom out from close pixels to normal image
         const t = elapsed / ZOOM_OUT_DURATION;
         zoom = MAX_ZOOM - (MAX_ZOOM - MIN_ZOOM) * t;
+      } else if (elapsed < totalDuration) {
+        // Zoom in from normal image to close pixels
+        const t = (elapsed - ZOOM_OUT_DURATION) / ZOOM_IN_DURATION;
+        zoom = MIN_ZOOM + (MAX_ZOOM - MIN_ZOOM) * t;
       } else {
         // Loop - restart from zoomed in
         animStartTime = Date.now();
@@ -475,7 +481,7 @@
       const durationInput = document.getElementById('duration');
 
       pixelSizeInput.oninput = () => {
-        PIXEL_SIZE = parseInt(pixelSizeInput.value);
+        PIXEL_SIZE = parseFloat(pixelSizeInput.value);
         document.getElementById('pixelSizeVal').textContent = PIXEL_SIZE;
         needsRedraw = true;
       };
@@ -487,7 +493,9 @@
       };
 
       durationInput.oninput = () => {
-        ZOOM_OUT_DURATION = parseInt(durationInput.value) * 1000;
+        const duration = parseInt(durationInput.value) * 1000;
+        ZOOM_OUT_DURATION = duration;
+        ZOOM_IN_DURATION = duration;
         document.getElementById('durationVal').textContent = durationInput.value;
       };
 
