@@ -287,18 +287,12 @@
     function fitViewToImage() {
       if (!img) return;
 
-      const canvasAspect = canvas.width / canvas.height;
-      const imgAspect = img.width / img.height;
-
-      if (imgAspect > canvasAspect) {
-        zoom = canvas.width / img.width;
-      } else {
-        zoom = canvas.height / img.height;
-      }
-
-      zoom = Math.min(zoom, MIN_ZOOM);
+      // Reset to centered position
       offsetX = 0;
       offsetY = 0;
+
+      // Start zoomed in
+      zoom = MAX_ZOOM;
       needsRedraw = true;
     }
 
@@ -357,6 +351,9 @@
       ctx.translate(canvas.width / 2, canvas.height / 2);
       ctx.scale(zoom, zoom);
       ctx.translate(offsetX, offsetY);
+
+      // Center the image
+      ctx.translate(-img.width / 2, -img.height / 2);
 
       // Always render as pixels - gap size decreases as we zoom out
       renderPixels();
