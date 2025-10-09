@@ -364,21 +364,31 @@
 
     function renderPixels() {
       const bounds = computeVisibleBounds();
-      ctx.imageSmoothingEnabled = false;
 
       // Gap size scales with zoom - at max zoom full gap, at min zoom no gap
       const zoomNorm = (zoom - MIN_ZOOM) / (MAX_ZOOM - MIN_ZOOM); // 0 = zoomed out, 1 = zoomed in
       const currentGap = PIXEL_GAP * zoomNorm;
 
-      const pixelDrawSize = PIXEL_SIZE * (1 - currentGap);
+      // When zoomed out, render smoothly instead of millions of tiny pixels
+      if (zoomNorm < 0.1) {
+        ctx.imageSmoothingEnabled = true;
+        ctx.drawImage(img, 0, 0);
+        return;
+      }
 
-      for (let y = bounds.top; y < bounds.bottom; y += PIXEL_SIZE) {
-        for (let x = bounds.left; x < bounds.right; x += PIXEL_SIZE) {
-          const pixel = getPixel(x + PIXEL_SIZE / 2, y + PIXEL_SIZE / 2);
+      ctx.imageSmoothingEnabled = false;
+
+      // Adaptive pixel size based on zoom - render fewer pixels when zoomed out
+      const adaptivePixelSize = Math.max(PIXEL_SIZE, PIXEL_SIZE / (zoom * 0.1));
+      const pixelDrawSize = adaptivePixelSize * (1 - currentGap);
+
+      for (let y = bounds.top; y < bounds.bottom; y += adaptivePixelSize) {
+        for (let x = bounds.left; x < bounds.right; x += adaptivePixelSize) {
+          const pixel = getPixel(x + adaptivePixelSize / 2, y + adaptivePixelSize / 2);
           ctx.fillStyle = `rgba(${pixel.r},${pixel.g},${pixel.b},${pixel.a / 255})`;
 
           // Center the smaller square within the grid cell
-          const offset = (PIXEL_SIZE - pixelDrawSize) / 2;
+          const offset = (adaptivePixelSize - pixelDrawSize) / 2;
           ctx.fillRect(x + offset, y + offset, pixelDrawSize, pixelDrawSize);
         }
       }
