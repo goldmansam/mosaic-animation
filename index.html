@@ -136,20 +136,16 @@
 
   <div id="controls">
     <div class="control-group">
-      <label>Base Step: <span id="stepVal">8</span>px</label>
-      <input type="range" id="baseStep" min="1" max="50" value="8">
+      <label>Pixel Size: <span id="pixelSizeVal">2</span>px</label>
+      <input type="range" id="pixelSize" min="1" max="10" value="2">
     </div>
     <div class="control-group">
-      <label>Line Aspect: <span id="aspectVal">3.0</span></label>
-      <input type="range" id="lineAspect" min="1" max="10" step="0.5" value="3">
+      <label>Pixel Gap: <span id="pixelGapVal">0.3</span></label>
+      <input type="range" id="pixelGap" min="0" max="1" step="0.05" value="0.3">
     </div>
     <div class="control-group">
-      <label>Min Zoom: <span id="minZoomVal">0.2</span></label>
-      <input type="number" id="minZoom" min="0.1" max="2" step="0.1" value="0.2">
-    </div>
-    <div class="control-group">
-      <label>Max Zoom: <span id="maxZoomVal">8.0</span></label>
-      <input type="number" id="maxZoom" min="1" max="20" step="0.5" value="8">
+      <label>Zoom Duration: <span id="durationVal">10</span>s</label>
+      <input type="range" id="duration" min="5" max="30" value="10">
     </div>
     <div class="btn-group">
       <button class="btn" id="playPauseBtn">Pause</button>
@@ -170,20 +166,13 @@
 
   <script>
     // ============ CONFIGURATION ============
-    let ZOOM_IN_DURATION = 5000;      // ms
-    let HOLD_DURATION = 1000;         // ms
-    let ZOOM_OUT_DURATION = 5000;     // ms
-    let MIN_ZOOM = 0.2;
-    let MAX_ZOOM = 8.0;
-
-    // Zoom thresholds (0-1, normalized across zoom range)
-    const Z_LINE_START = 0.3;         // Start morphing to lines
-    const Z_SMOOTH_START = 0.6;       // Start smooth continuous mode
-    const Z_ABSTRACT_START = 0.9;     // Start abstract mode
+    let ZOOM_OUT_DURATION = 10000;     // ms - time to zoom out from pixels to normal image
+    let MIN_ZOOM = 0.3;                // Zoomed out - normal image view
+    let MAX_ZOOM = 15.0;               // Zoomed in - individual pixels visible
 
     // Visual parameters
-    let baseStep = 8;
-    let LINE_ASPECT = 3.0;
+    let PIXEL_SIZE = 2;                // Size of each pixel square in image space
+    let PIXEL_GAP = 0.3;               // Gap between pixels (0 = no gap, 1 = full gap)
 
     // ============ STATE ============
     const canvas = document.getElementById('canvas');
@@ -194,14 +183,13 @@
     let imageData = null;
 
     // Transform state
-    let zoom = MIN_ZOOM;
+    let zoom = MAX_ZOOM; // Start zoomed IN (close up on pixels)
     let offsetX = 0;
     let offsetY = 0;
 
     // Animation state
     let isPlaying = true;
     let animStartTime = Date.now();
-    let animationPhase = 'zoomIn'; // 'zoomIn', 'hold', 'zoomOut'
 
     // Interaction state
     let isDragging = false;
@@ -370,84 +358,30 @@
       ctx.scale(zoom, zoom);
       ctx.translate(offsetX, offsetY);
 
-      // Determine render mode based on zoom
-      const zoomNorm = (zoom - MIN_ZOOM) / (MAX_ZOOM - MIN_ZOOM);
-
-      if (zoomNorm < Z_LINE_START) {
-        renderSmooth();
-      } else if (zoomNorm < Z_SMOOTH_START) {
-        renderLines();
-      } else if (zoomNorm < Z_ABSTRACT_START) {
-        renderSpecks();
-      } else {
-        renderAbstract();
-      }
+      // Always render as pixels - gap size decreases as we zoom out
+      renderPixels();
 
       ctx.restore();
     }
 
-    function renderSpecks() {
-      const step = Math.max(1, Math.floor(baseStep / zoom));
+    function renderPixels() {
       const bounds = computeVisibleBounds();
-
       ctx.imageSmoothingEnabled = false;
 
-      for (let y = bounds.top; y < bounds.bottom; y += step) {
-        for (let x = bounds.left; x < bounds.right; x += step) {
-          const pixel = getPixel(x, y);
+      // Gap size scales with zoom - at max zoom full gap, at min zoom no gap
+      const zoomNorm = (zoom - MIN_ZOOM) / (MAX_ZOOM - MIN_ZOOM); // 0 = zoomed out, 1 = zoomed in
+      const currentGap = PIXEL_GAP * zoomNorm;
+
+      const pixelDrawSize = PIXEL_SIZE * (1 - currentGap);
+
+      for (let y = bounds.top; y < bounds.bottom; y += PIXEL_SIZE) {
+        for (let x = bounds.left; x < bounds.right; x += PIXEL_SIZE) {
+          const pixel = getPixel(x + PIXEL_SIZE / 2, y + PIXEL_SIZE / 2);
           ctx.fillStyle = `rgba(${pixel.r},${pixel.g},${pixel.b},${pixel.a / 255})`;
-          ctx.fillRect(x, y, step, step);
-        }
-      }
-    }
 
-    function renderLines() {
-      const step = Math.max(1, Math.floor(baseStep / zoom));
-      const bounds = computeVisibleBounds();
-
-      const lineWidth = Math.max(1, step * LINE_ASPECT);
-      const lineHeight = Math.max(1, step / LINE_ASPECT);
-
-      ctx.imageSmoothingEnabled = false;
-
-      for (let y = bounds.top; y < bounds.bottom; y += step) {
-        for (let x = bounds.left; x < bounds.right; x += step) {
-          const pixel = getPixel(x + step / 2, y + step / 2);
-          ctx.fillStyle = `rgba(${pixel.r},${pixel.g},${pixel.b},${pixel.a / 255})`;
-          ctx.fillRect(x, y, lineWidth, lineHeight);
-        }
-      }
-    }
-
-    function renderSmooth() {
-      ctx.imageSmoothingEnabled = true;
-      ctx.filter = 'blur(1px)';
-      ctx.drawImage(img, 0, 0);
-      ctx.filter = 'none';
-    }
-
-    function renderAbstract() {
-      const step = Math.max(2, Math.floor(baseStep / zoom));
-      const bounds = computeVisibleBounds();
-
-      ctx.imageSmoothingEnabled = false;
-
-      for (let y = bounds.top; y < bounds.bottom; y += step) {
-        for (let x = bounds.left; x < bounds.right; x += step) {
-          // Jitter position
-          const jitterX = (Math.random() - 0.5) * step * 2;
-          const jitterY = (Math.random() - 0.5) * step * 2;
-
-          const pixel = getPixel(x, y);
-
-          // Posterize colors
-          const levels = 4;
-          const r = Math.floor(pixel.r / 255 * levels) / levels * 255;
-          const g = Math.floor(pixel.g / 255 * levels) / levels * 255;
-          const b = Math.floor(pixel.b / 255 * levels) / levels * 255;
-
-          ctx.fillStyle = `rgba(${r},${g},${b},${pixel.a / 255})`;
-          ctx.fillRect(x + jitterX, y + jitterY, step, step);
+          // Center the smaller square within the grid cell
+          const offset = (PIXEL_SIZE - pixelDrawSize) / 2;
+          ctx.fillRect(x + offset, y + offset, pixelDrawSize, pixelDrawSize);
         }
       }
     }
@@ -457,25 +391,15 @@
       if (!isPlaying) return;
 
       const elapsed = Date.now() - animStartTime;
-      const totalDuration = ZOOM_IN_DURATION + HOLD_DURATION + ZOOM_OUT_DURATION;
 
-      if (elapsed < ZOOM_IN_DURATION) {
-        // Zoom in
-        animationPhase = 'zoomIn';
-        const t = elapsed / ZOOM_IN_DURATION;
-        zoom = MIN_ZOOM + (MAX_ZOOM - MIN_ZOOM) * t;
-      } else if (elapsed < ZOOM_IN_DURATION + HOLD_DURATION) {
-        // Hold
-        animationPhase = 'hold';
-        zoom = MAX_ZOOM;
-      } else if (elapsed < totalDuration) {
-        // Zoom out
-        animationPhase = 'zoomOut';
-        const t = (elapsed - ZOOM_IN_DURATION - HOLD_DURATION) / ZOOM_OUT_DURATION;
+      if (elapsed < ZOOM_OUT_DURATION) {
+        // Zoom out from close pixels to normal image
+        const t = elapsed / ZOOM_OUT_DURATION;
         zoom = MAX_ZOOM - (MAX_ZOOM - MIN_ZOOM) * t;
       } else {
-        // Loop
+        // Loop - restart from zoomed in
         animStartTime = Date.now();
+        zoom = MAX_ZOOM;
       }
 
       needsRedraw = true;
@@ -549,31 +473,25 @@
 
     // ============ CONTROLS ============
     function setupControls() {
-      const baseStepInput = document.getElementById('baseStep');
-      const lineAspectInput = document.getElementById('lineAspect');
-      const minZoomInput = document.getElementById('minZoom');
-      const maxZoomInput = document.getElementById('maxZoom');
+      const pixelSizeInput = document.getElementById('pixelSize');
+      const pixelGapInput = document.getElementById('pixelGap');
+      const durationInput = document.getElementById('duration');
 
-      baseStepInput.oninput = () => {
-        baseStep = parseInt(baseStepInput.value);
-        document.getElementById('stepVal').textContent = baseStep;
+      pixelSizeInput.oninput = () => {
+        PIXEL_SIZE = parseInt(pixelSizeInput.value);
+        document.getElementById('pixelSizeVal').textContent = PIXEL_SIZE;
         needsRedraw = true;
       };
 
-      lineAspectInput.oninput = () => {
-        LINE_ASPECT = parseFloat(lineAspectInput.value);
-        document.getElementById('aspectVal').textContent = LINE_ASPECT.toFixed(1);
+      pixelGapInput.oninput = () => {
+        PIXEL_GAP = parseFloat(pixelGapInput.value);
+        document.getElementById('pixelGapVal').textContent = PIXEL_GAP.toFixed(2);
         needsRedraw = true;
       };
 
-      minZoomInput.oninput = () => {
-        MIN_ZOOM = parseFloat(minZoomInput.value);
-        document.getElementById('minZoomVal').textContent = MIN_ZOOM.toFixed(1);
-      };
-
-      maxZoomInput.oninput = () => {
-        MAX_ZOOM = parseFloat(maxZoomInput.value);
-        document.getElementById('maxZoomVal').textContent = MAX_ZOOM.toFixed(1);
+      durationInput.oninput = () => {
+        ZOOM_OUT_DURATION = parseInt(durationInput.value) * 1000;
+        document.getElementById('durationVal').textContent = durationInput.value;
       };
 
       document.getElementById('playPauseBtn').onclick = togglePlayPause;
@@ -593,7 +511,7 @@
 
     function restart() {
       animStartTime = Date.now();
-      zoom = MIN_ZOOM;
+      zoom = MAX_ZOOM; // Start zoomed in
       isPlaying = true;
       document.getElementById('playPauseBtn').textContent = 'Pause';
       needsRedraw = true;
