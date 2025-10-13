@@ -87,7 +87,7 @@
 
     // ============ SCENE SETUP ============
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x000000);
+    scene.background = new THREE.Color(0x0a0a0a); // Slightly gray to see particles better
 
     const camera = new THREE.PerspectiveCamera(
       50,
@@ -101,6 +101,10 @@
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.setPixelRatio(window.devicePixelRatio);
     document.getElementById('canvas').appendChild(renderer.domElement);
+
+    console.log('Renderer created:', renderer);
+    console.log('Canvas element:', renderer.domElement);
+    console.log('WebGL context:', renderer.getContext());
 
     // ============ SHADERS ============
     const vertexShader = `
@@ -289,6 +293,7 @@
 
     // ============ ANIMATION ============
     const clock = new THREE.Clock();
+    let frameCount = 0;
 
     function animate() {
       requestAnimationFrame(animate);
@@ -308,6 +313,12 @@
       material.uniforms.uTime.value = time;
 
       renderer.render(scene, camera);
+
+      // Debug log first few frames
+      if (frameCount < 3) {
+        console.log(`Frame ${frameCount}: camera.z=${camera.position.z.toFixed(2)}, progress=${easedProgress.toFixed(2)}, particles in scene=${scene.children.length}`);
+        frameCount++;
+      }
     }
 
     // ============ RESIZE ============
