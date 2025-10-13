@@ -52,9 +52,10 @@
 
     // ============ CONFIGURATION ============
     const IMAGE_PATH = 'koi.jpg';
-    const SAMPLE_STEP = 4;              // Particle density (2=dense, 4=balanced, 6=sparse)
-    const DEPTH_RANGE = 8;              // How deep the particle cloud is (Z-axis spread)
-    const IMAGE_SCALE = 6;              // Size of the final image when viewed from far
+    const SAMPLE_STEP = 3;              // Particle density (2=dense, 3=balanced, 4=sparse)
+    const DEPTH_RANGE = 12;             // How deep the particle cloud is (Z-axis spread when inside)
+    const IMAGE_SCALE = 8;              // Size of the final image when viewed from far
+    const PARTICLE_SIZE = 0.12;         // Base particle size
 
     // Camera starting position (inside the cloud)
     const START_POS = { x: 0, y: 0, z: -15 }; // Start BEHIND the cloud looking forward
@@ -136,7 +137,7 @@
 
       // Material with custom size attribute
       const material = new THREE.PointsMaterial({
-        size: 0.08,
+        size: PARTICLE_SIZE,
         vertexColors: true,
         transparent: true,
         opacity: 0.9,
@@ -144,6 +145,13 @@
         blending: THREE.AdditiveBlending,
         depthWrite: false
       });
+
+      // Store original Z positions for morphing
+      const originalZ = new Float32Array(positions.length / 3);
+      for (let i = 0; i < positions.length / 3; i++) {
+        originalZ[i] = positions[i * 3 + 2];
+      }
+      geometry.userData.originalZ = originalZ;
 
       particles = new THREE.Points(geometry, material);
       scene.add(particles);
@@ -192,6 +200,26 @@
       if (keys['d']) camera.position.x += moveSpeed;
       if (keys['q']) camera.position.y += moveSpeed;
       if (keys['e']) camera.position.y -= moveSpeed;
+
+      // Flatten particles as camera moves away for clearer image
+      if (particles && particles.geometry.userData.originalZ) {
+        const positions = particles.geometry.attributes.position.array;
+        const originalZ = particles.geometry.userData.originalZ;
+
+        // Calculate distance from camera to center of cloud
+        const distance = camera.position.length();
+
+        // Flatten factor: 0 at close (z=-15), 1 at far (z=20+)
+        const flattenFactor = Math.max(0, Math.min(1, (distance - 15) / 20));
+
+        // Morph Z positions
+        for (let i = 0; i < originalZ.length; i++) {
+          // Compress depth as we zoom out
+          positions[i * 3 + 2] = originalZ[i] * (1 - flattenFactor * 0.9);
+        }
+
+        particles.geometry.attributes.position.needsUpdate = true;
+      }
 
       renderer.render(scene, camera);
     }
