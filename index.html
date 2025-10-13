@@ -140,7 +140,7 @@
         size: PARTICLE_SIZE,
         vertexColors: true,
         transparent: true,
-        opacity: 0.5,
+        opacity: 0.6,
         sizeAttenuation: true,
         blending: THREE.NormalBlending,
         depthWrite: false
@@ -226,11 +226,11 @@
         // Always use normal blending for true colors
         material.blending = THREE.NormalBlending;
 
-        // Reduce opacity significantly when far to prevent white washout
-        material.opacity = 0.5 - (flattenFactor * 0.2);
+        // Keep opacity constant for consistent brightness
+        material.opacity = 0.6;
 
         // Make particles smaller when flattened for clearer image
-        material.size = PARTICLE_SIZE * (1 - flattenFactor * 0.5);
+        material.size = PARTICLE_SIZE * (1 - flattenFactor * 0.3);
       }
 
       renderer.render(scene, camera);
