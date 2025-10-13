@@ -181,7 +181,7 @@
     window.addEventListener('wheel', (e) => {
       e.preventDefault();
       targetCameraZ += e.deltaY * 0.01;
-      targetCameraZ = Math.max(-2, Math.min(15, targetCameraZ));
+      // No limits - move freely
     }, { passive: false });
 
     // WASD controls
