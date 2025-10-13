@@ -209,9 +209,9 @@
         // Calculate distance from camera to center of cloud
         const distance = camera.position.length();
 
-        // Flatten factor: 0 at center (distance=0), 1 at distance=10
-        // Image is bigger now so needs slightly more distance to resolve
-        const flattenFactor = Math.max(0, Math.min(1, distance / 10));
+        // Flatten factor: 0 at center (distance=0), 1 at distance=5
+        // Image fully resolves quickly at close distance
+        const flattenFactor = Math.max(0, Math.min(1, distance / 5));
 
         // Morph Z positions
         for (let i = 0; i < originalZ.length; i++) {
