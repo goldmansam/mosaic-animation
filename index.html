@@ -126,7 +126,7 @@
           const pz = (Math.random() - 0.5) * DEPTH_RANGE;
 
           positions.push(px, py, pz);
-          colors.push(r * 1.2, g * 1.2, b * 1.2); // Slight brightness boost
+          colors.push(r, g, b); // Use original colors, no boost
 
           // Size based on brightness with variation
           const brightness = (r + g + b) / 3;
@@ -171,7 +171,7 @@
         size: PARTICLE_SIZE,
         vertexColors: true,
         transparent: true,
-        opacity: 0.7,
+        opacity: 0.4,  // Lower opacity to prevent oversaturation with dense particles
         sizeAttenuation: true,
         blending: THREE.NormalBlending,
         depthWrite: false,
@@ -258,7 +258,7 @@
         material.blending = THREE.NormalBlending;
 
         // Keep opacity constant for consistent brightness
-        material.opacity = 0.7;
+        material.opacity = 0.4;
 
         // Make particles LARGER as you zoom out so image stays detailed
         // This compensates for perspective making them appear smaller
