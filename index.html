@@ -231,6 +231,12 @@
       }
       points.geometry.attributes.position.needsUpdate = true;
 
+      // Scale up the entire particle system as it resolves
+      // morphFactor=0 (cloud): scale = 1.0
+      // morphFactor=1 (image): scale = 1.5 (fills more of screen)
+      const scale = 1.0 + (morphFactor * 0.5);
+      points.scale.set(scale, scale, scale);
+
       renderer.render(scene, camera);
     }
 
