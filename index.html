@@ -52,10 +52,10 @@
 
     // ============ CONFIGURATION ============
     const IMAGE_PATH = 'koi.jpg';
-    const SAMPLE_STEP = 2;              // Particle density (2=dense, 3=balanced, 4=sparse)
+    const SAMPLE_STEP = 1.5;            // Particle density (smaller = more dense)
     const DEPTH_RANGE = 3;              // How deep the particle cloud is (Z-axis spread when inside)
     const IMAGE_SCALE = 10;             // Size of the final image when viewed from far
-    const PARTICLE_SIZE = 0.18;         // Base particle size
+    const PARTICLE_SIZE = 0.1;          // Base particle size (smaller for finer detail)
 
     // Camera starting position (center of the cloud)
     const START_POS = { x: 0, y: 0, z: 0 }; // Start at center of cloud
@@ -262,7 +262,7 @@
 
         // Make particles LARGER as you zoom out so image stays detailed
         // This compensates for perspective making them appear smaller
-        material.size = PARTICLE_SIZE * (1 + flattenFactor * 0.3);
+        material.size = PARTICLE_SIZE * (1 + flattenFactor * 0.6);
       }
 
       renderer.render(scene, camera);
