@@ -180,7 +180,7 @@
 
     window.addEventListener('wheel', (e) => {
       e.preventDefault();
-      targetCameraZ += e.deltaY * 0.01;
+      targetCameraZ += e.deltaY * 0.005;  // Half speed (was 0.01)
       // No limits - move freely
     }, { passive: false });
 
