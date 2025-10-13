@@ -176,7 +176,7 @@
         size: PARTICLE_SIZE,
         vertexColors: true,
         transparent: true,
-        opacity: 0.6,  // Lower opacity with denser particles
+        opacity: 0.4,  // Much lower opacity to prevent color oversaturation
         sizeAttenuation: true,
         depthWrite: false
       });
@@ -222,8 +222,8 @@
       // Smooth camera movement
       camera.position.z += (targetCameraZ - camera.position.z) * 0.08;
 
-      // WASD movement - 3x faster than scroll
-      const moveSpeed = 0.09;  // 3x the scroll speed
+      // WASD movement - 6x faster than scroll
+      const moveSpeed = 0.18;  // 6x the scroll speed (2x faster than before)
       if (keys['w']) {
         camera.position.z += moveSpeed;
         targetCameraZ = camera.position.z;
@@ -268,7 +268,7 @@
       material.size = PARTICLE_SIZE * scale * 1.2;
 
       // Lower opacity with denser particles for accurate colors
-      material.opacity = 0.6;
+      material.opacity = 0.4;
 
       renderer.render(scene, camera);
     }
