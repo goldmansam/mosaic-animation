@@ -140,9 +140,9 @@
         size: PARTICLE_SIZE,
         vertexColors: true,
         transparent: true,
-        opacity: 0.9,
+        opacity: 0.5,
         sizeAttenuation: true,
-        blending: THREE.AdditiveBlending,
+        blending: THREE.NormalBlending,
         depthWrite: false
       });
 
@@ -223,19 +223,14 @@
         // Adjust material based on distance
         const material = particles.material;
 
-        // Reduce opacity when far to prevent white washout
-        material.opacity = 0.9 - (flattenFactor * 0.3);
+        // Always use normal blending for true colors
+        material.blending = THREE.NormalBlending;
+
+        // Reduce opacity significantly when far to prevent white washout
+        material.opacity = 0.5 - (flattenFactor * 0.2);
 
         // Make particles smaller when flattened for clearer image
-        material.size = PARTICLE_SIZE * (1 - flattenFactor * 0.4);
-
-        // Switch to normal blending when far for true colors
-        if (flattenFactor > 0.5) {
-          material.blending = THREE.NormalBlending;
-          material.opacity = 0.8;
-        } else {
-          material.blending = THREE.AdditiveBlending;
-        }
+        material.size = PARTICLE_SIZE * (1 - flattenFactor * 0.5);
       }
 
       renderer.render(scene, camera);
