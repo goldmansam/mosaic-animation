@@ -52,10 +52,10 @@
 
     // ============ CONFIGURATION ============
     const IMAGE_PATH = 'koi.jpg';
-    const SAMPLE_STEP = 3;              // Particle density (2=dense, 3=balanced, 4=sparse)
+    const SAMPLE_STEP = 2;              // Particle density (2=dense, 3=balanced, 4=sparse)
     const DEPTH_RANGE = 4;              // How deep the particle cloud is (Z-axis spread when inside)
     const IMAGE_SCALE = 12;             // Size of the final image when viewed from far (larger = fills screen better)
-    const PARTICLE_SIZE = 0.15;         // Base particle size (larger for better visibility)
+    const PARTICLE_SIZE = 0.2;          // Base particle size (larger for better visibility)
 
     // Camera starting position (center of the cloud)
     const START_POS = { x: 0, y: 0, z: 0 }; // Start at center of cloud
@@ -140,7 +140,7 @@
         size: PARTICLE_SIZE,
         vertexColors: true,
         transparent: true,
-        opacity: 0.6,
+        opacity: 0.7,
         sizeAttenuation: true,
         blending: THREE.NormalBlending,
         depthWrite: false
@@ -228,10 +228,10 @@
         material.blending = THREE.NormalBlending;
 
         // Keep opacity constant for consistent brightness
-        material.opacity = 0.6;
+        material.opacity = 0.7;
 
-        // Make particles smaller when flattened for clearer image
-        material.size = PARTICLE_SIZE * (1 - flattenFactor * 0.3);
+        // Keep particles larger to avoid gaps
+        material.size = PARTICLE_SIZE * (1 - flattenFactor * 0.1);
       }
 
       renderer.render(scene, camera);
