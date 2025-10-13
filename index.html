@@ -176,7 +176,7 @@
         size: PARTICLE_SIZE,
         vertexColors: true,
         transparent: true,
-        opacity: 0.8,
+        opacity: 0.6,  // Lower opacity with denser particles
         sizeAttenuation: true,
         depthWrite: false
       });
@@ -267,8 +267,8 @@
       // Make particles larger as we scale up to fill gaps
       material.size = PARTICLE_SIZE * scale * 1.2;
 
-      // Keep opacity high to prevent darkening
-      material.opacity = 0.85;
+      // Lower opacity with denser particles for accurate colors
+      material.opacity = 0.6;
 
       renderer.render(scene, camera);
     }
