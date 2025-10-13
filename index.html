@@ -53,8 +53,8 @@
     // ============ CONFIGURATION ============
     const IMAGE_PATH = 'tobias-keller-73F4pKoUkM0-unsplash.jpg';
 
-    // Particle density - very dense for crystal clear image
-    const SAMPLE_STEP = 1;  // Sample every pixel for maximum clarity
+    // Particle density - balanced for clarity and performance
+    const SAMPLE_STEP = 1.5;  // Dense enough for clarity, fast enough for smooth zoom
 
     // Depth range when in cloud mode (scattered in Z)
     const CLOUD_DEPTH = 24;  // 4x the original depth (was 6)
@@ -65,8 +65,8 @@
     // Distance where image is fully resolved and clear
     const IMAGE_VIEW_DISTANCE = 15;
 
-    // Particle appearance - tiny particles for sharp detail
-    const PARTICLE_SIZE = 0.03;
+    // Particle appearance - small particles for detail
+    const PARTICLE_SIZE = 0.04;
 
     // ============ SCENE SETUP ============
     const scene = new THREE.Scene();
@@ -111,10 +111,19 @@
       const imageWidth = 8;
       const imageHeight = imageWidth * aspect;
 
-      // Sample pixels densely
+      // Crop 20% from edges
+      const cropPercent = 0.2;
+      const startX = Math.floor(img.width * cropPercent);
+      const endX = Math.floor(img.width * (1 - cropPercent));
+      const startY = Math.floor(img.height * cropPercent);
+      const endY = Math.floor(img.height * (1 - cropPercent));
+      const croppedWidth = endX - startX;
+      const croppedHeight = endY - startY;
+
+      // Sample pixels densely from cropped region
       let particleCount = 0;
-      for (let y = 0; y < img.height; y += SAMPLE_STEP) {
-        for (let x = 0; x < img.width; x += SAMPLE_STEP) {
+      for (let y = startY; y < endY; y += SAMPLE_STEP) {
+        for (let x = startX; x < endX; x += SAMPLE_STEP) {
           const i = (y * img.width + x) * 4;
           const r = imageData.data[i] / 255;
           const g = imageData.data[i + 1] / 255;
@@ -123,9 +132,9 @@
 
           if (a < 0.1) continue; // Skip transparent
 
-          // Image position (X, Y for image, Z will morph)
-          const px = (x / img.width - 0.5) * imageWidth;
-          const py = -(y / img.height - 0.5) * imageHeight;
+          // Image position (X, Y for image, Z will morph) - adjusted for crop
+          const px = ((x - startX) / croppedWidth - 0.5) * imageWidth;
+          const py = -((y - startY) / croppedHeight - 0.5) * imageHeight;
 
           // Store cloud Z (random depth) separately
           const cloudZ = (Math.random() - 0.5) * CLOUD_DEPTH;
@@ -171,12 +180,12 @@
       // Store cloud Z positions for morphing
       originalCloudZ = shuffledCloudZ;
 
-      // Material - lower opacity for dense tiny particles
+      // Material - balanced opacity
       const material = new THREE.PointsMaterial({
         size: PARTICLE_SIZE,
         vertexColors: true,
         transparent: true,
-        opacity: 0.3,  // Much lower with very dense particles
+        opacity: 0.5,  // Balanced for accurate colors
         sizeAttenuation: true,
         depthWrite: false
       });
@@ -264,11 +273,11 @@
       // Adjust particle size and opacity to prevent grid artifacts
       const material = points.material;
 
-      // Make particles grow significantly with scale for clear image
-      material.size = PARTICLE_SIZE * scale * 2.5;
+      // Make particles grow with scale for clear image
+      material.size = PARTICLE_SIZE * scale * 2.0;
 
-      // Lower opacity for dense particles
-      material.opacity = 0.3;
+      // Balanced opacity
+      material.opacity = 0.5;
 
       renderer.render(scene, camera);
     }
