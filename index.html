@@ -39,13 +39,22 @@
   <script type="importmap">
     {
       "imports": {
-        "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js"
+        "three": "https://unpkg.com/three@0.170.0/build/three.module.js"
       }
     }
   </script>
 
   <script type="module">
-    import * as THREE from 'three';
+    try {
+      const THREE = await import('three');
+      window.THREE = THREE;
+    } catch (err) {
+      document.getElementById('loading').innerHTML = 'Error loading Three.js. Check internet connection.';
+      console.error('Failed to load Three.js:', err);
+      throw err;
+    }
+
+    const THREE = window.THREE;
 
     // ============ CONFIGURATION ============
     const IMAGE_PATH = 'koi.jpg';          // Your image
