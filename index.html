@@ -53,12 +53,12 @@
     // ============ CONFIGURATION ============
     const IMAGE_PATH = 'koi.jpg';
     const SAMPLE_STEP = 3;              // Particle density (2=dense, 3=balanced, 4=sparse)
-    const DEPTH_RANGE = 12;             // How deep the particle cloud is (Z-axis spread when inside)
+    const DEPTH_RANGE = 4;              // How deep the particle cloud is (Z-axis spread when inside)
     const IMAGE_SCALE = 8;              // Size of the final image when viewed from far
     const PARTICLE_SIZE = 0.12;         // Base particle size
 
-    // Camera starting position (inside the cloud)
-    const START_POS = { x: 0, y: 0, z: -15 }; // Start BEHIND the cloud looking forward
+    // Camera starting position (center of the cloud)
+    const START_POS = { x: 0, y: 0, z: 0 }; // Start at center of cloud
 
     // ============ SCENE SETUP ============
     const scene = new THREE.Scene();
@@ -209,8 +209,8 @@
         // Calculate distance from camera to center of cloud
         const distance = camera.position.length();
 
-        // Flatten factor: 0 at close (z=-15), 1 at far (z=20+)
-        const flattenFactor = Math.max(0, Math.min(1, (distance - 15) / 20));
+        // Flatten factor: 0 at center (distance=0), 1 at far (distance=15+)
+        const flattenFactor = Math.max(0, Math.min(1, distance / 15));
 
         // Morph Z positions
         for (let i = 0; i < originalZ.length; i++) {
