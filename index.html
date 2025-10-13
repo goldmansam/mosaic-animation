@@ -231,10 +231,10 @@
       }
       points.geometry.attributes.position.needsUpdate = true;
 
-      // Scale up the entire particle system as it resolves
+      // Scale up the entire particle system as it resolves to fill entire window
       // morphFactor=0 (cloud): scale = 1.0
-      // morphFactor=1 (image): scale = 1.5 (fills more of screen)
-      const scale = 1.0 + (morphFactor * 0.5);
+      // morphFactor=1 (image): scale = 2.5 (fills entire screen)
+      const scale = 1.0 + (morphFactor * 1.5);
       points.scale.set(scale, scale, scale);
 
       renderer.render(scene, camera);
