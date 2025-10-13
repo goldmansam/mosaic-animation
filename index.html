@@ -30,11 +30,26 @@
       color: #666;
       pointer-events: none;
     }
+    #hint {
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 12px;
+      color: #666;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 1s;
+    }
+    #hint.show {
+      opacity: 1;
+    }
   </style>
 </head>
 <body>
   <div id="canvas"></div>
   <div id="loading">Loading...</div>
+  <div id="hint">🖱️ Scroll to zoom • Close = particles • Far = image</div>
 
   <script type="importmap">
     {
@@ -65,7 +80,7 @@
     // Camera distances
     const NEAR_DISTANCE = 3;                // Inside cloud (particles scattered)
     const FAR_DISTANCE = 12;                // Far away (image resolved)
-    const START_DISTANCE = NEAR_DISTANCE;   // Start inside the cloud
+    const START_DISTANCE = 7;               // Start mid-way so you can see something immediately
 
     // Animation
     const DRIFT_STRENGTH = 0.02;            // Particle drift in cloud mode
@@ -301,13 +316,24 @@
     });
 
     // ============ START ============
+    console.log('Starting particle system...');
+    console.log('THREE loaded:', typeof THREE);
+
     loadImage().then(img => {
+      console.log('Image loaded:', img.width, 'x', img.height);
       createParticleSystem(img);
+      console.log('Particle system created');
       document.getElementById('loading').style.display = 'none';
+
+      // Show hint after 1 second
+      setTimeout(() => {
+        document.getElementById('hint').classList.add('show');
+      }, 1000);
+
       animate();
     }).catch(err => {
       console.error('Failed to load image:', err);
-      document.getElementById('loading').innerHTML = 'Error: Failed to load image. Check console.';
+      document.getElementById('loading').innerHTML = 'Error: ' + err.message;
     });
   </script>
 </body>
