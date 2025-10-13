@@ -237,6 +237,15 @@
       const scale = 1.0 + (morphFactor * 1.5);
       points.scale.set(scale, scale, scale);
 
+      // Adjust particle size and opacity to prevent grid artifacts
+      const material = points.material;
+
+      // Make particles larger as we scale up to fill gaps
+      material.size = PARTICLE_SIZE * scale * 1.2;
+
+      // Keep opacity high to prevent darkening
+      material.opacity = 0.85;
+
       renderer.render(scene, camera);
     }
 
