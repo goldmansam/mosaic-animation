@@ -53,8 +53,8 @@
     // ============ CONFIGURATION ============
     const IMAGE_PATH = 'tobias-keller-73F4pKoUkM0-unsplash.jpg';
 
-    // Particle density - balanced for clarity and performance
-    const SAMPLE_STEP = 2.5;  // Less dense for better performance
+    // Particle density - same as koi settings
+    const SAMPLE_STEP = 2;
 
     // Depth range when in cloud mode (scattered in Z)
     const CLOUD_DEPTH = 24;  // 4x the original depth (was 6)
@@ -65,8 +65,8 @@
     // Distance where image is fully resolved and clear
     const IMAGE_VIEW_DISTANCE = 15;
 
-    // Particle appearance
-    const PARTICLE_SIZE = 0.055;  // Smaller base size
+    // Particle appearance - same as koi settings
+    const PARTICLE_SIZE = 0.06;
 
     // ============ SCENE SETUP ============
     const scene = new THREE.Scene();
@@ -171,12 +171,12 @@
       // Store cloud Z positions for morphing
       originalCloudZ = shuffledCloudZ;
 
-      // Material
+      // Material - same as koi settings
       const material = new THREE.PointsMaterial({
         size: PARTICLE_SIZE,
         vertexColors: true,
         transparent: true,
-        opacity: 0.75,  // Higher opacity with larger particles for solid colors
+        opacity: 0.8,
         sizeAttenuation: true,
         depthWrite: false
       });
@@ -264,11 +264,11 @@
       // Adjust particle size and opacity to prevent grid artifacts
       const material = points.material;
 
-      // Make particles grow with scale but keep them smaller
-      material.size = PARTICLE_SIZE * scale * 1.5;
+      // Make particles grow with scale - same as koi settings
+      material.size = PARTICLE_SIZE * scale * 1.2;
 
-      // Higher opacity with balanced particles for solid colors
-      material.opacity = 0.75;
+      // Same opacity as koi settings
+      material.opacity = 0.85;
 
       renderer.render(scene, camera);
     }
