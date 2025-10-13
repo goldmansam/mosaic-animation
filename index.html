@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Mosaic Animation</title>
+  <title>Particle Image</title>
   <style>
     * {
       margin: 0;
@@ -20,564 +20,286 @@
       display: block;
       width: 100vw;
       height: 100vh;
-      cursor: grab;
     }
-    #canvas.dragging {
-      cursor: grabbing;
-    }
-    #dropzone {
+    #loading {
       position: fixed;
       top: 50%;
       left: 50%;
       transform: translate(-50%, -50%);
-      text-align: center;
-      background: rgba(255,255,255,0.1);
-      padding: 60px;
-      border-radius: 12px;
-      border: 2px dashed rgba(255,255,255,0.3);
-    }
-    #dropzone.dragover {
-      background: rgba(255,255,255,0.2);
-      border-color: rgba(255,255,255,0.6);
-    }
-    #fileInput {
-      display: none;
-    }
-    #chooseBtn {
-      background: #fff;
-      color: #000;
-      border: none;
-      padding: 12px 24px;
-      font-size: 16px;
-      border-radius: 6px;
-      cursor: pointer;
-      font-weight: 600;
-    }
-    #chooseBtn:hover {
-      background: #eee;
-    }
-    #controls {
-      position: fixed;
-      top: 20px;
-      left: 20px;
-      background: rgba(0,0,0,0.8);
-      padding: 20px;
-      border-radius: 8px;
-      min-width: 280px;
-      transition: opacity 0.3s;
-    }
-    #controls.hidden {
-      opacity: 0;
+      font-size: 14px;
+      color: #666;
       pointer-events: none;
-    }
-    .control-group {
-      margin-bottom: 15px;
-    }
-    .control-group label {
-      display: block;
-      margin-bottom: 5px;
-      font-size: 12px;
-      color: #aaa;
-    }
-    .control-group input[type="range"],
-    .control-group input[type="number"] {
-      width: 100%;
-    }
-    .control-group input[type="number"] {
-      background: rgba(255,255,255,0.1);
-      border: 1px solid rgba(255,255,255,0.2);
-      color: #fff;
-      padding: 4px 8px;
-      border-radius: 4px;
-    }
-    .btn-group {
-      display: flex;
-      gap: 8px;
-      margin-top: 15px;
-    }
-    .btn {
-      flex: 1;
-      background: rgba(255,255,255,0.2);
-      border: 1px solid rgba(255,255,255,0.3);
-      color: #fff;
-      padding: 8px;
-      border-radius: 4px;
-      cursor: pointer;
-      font-size: 12px;
-    }
-    .btn:hover {
-      background: rgba(255,255,255,0.3);
-    }
-    #helpOverlay {
-      position: fixed;
-      bottom: 20px;
-      left: 20px;
-      background: rgba(0,0,0,0.8);
-      padding: 12px 16px;
-      border-radius: 6px;
-      font-size: 12px;
-      opacity: 0;
-      pointer-events: none;
-      transition: opacity 0.3s;
-    }
-    #helpOverlay.visible {
-      opacity: 1;
     }
   </style>
 </head>
 <body>
-  <canvas id="canvas"></canvas>
+  <div id="canvas"></div>
+  <div id="loading">Loading...</div>
 
-  <div id="dropzone">
-    <h2 style="margin-bottom: 20px;">Drop Image or Click to Choose</h2>
-    <button id="chooseBtn">Choose Image</button>
-    <input type="file" id="fileInput" accept="image/*">
-  </div>
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js"
+      }
+    }
+  </script>
 
-  <div id="controls">
-    <div class="control-group">
-      <label>Pixel Size: <span id="pixelSizeVal">0.1</span>px</label>
-      <input type="range" id="pixelSize" min="0.1" max="10" step="0.1" value="0.1">
-    </div>
-    <div class="control-group">
-      <label>Pixel Gap: <span id="pixelGapVal">0.50</span></label>
-      <input type="range" id="pixelGap" min="0" max="1" step="0.05" value="0.5">
-    </div>
-    <div class="control-group">
-      <label>Zoom Duration: <span id="durationVal">10</span>s</label>
-      <input type="range" id="duration" min="5" max="60" value="10">
-    </div>
-    <div class="btn-group">
-      <button class="btn" id="playPauseBtn">Pause</button>
-      <button class="btn" id="restartBtn">Restart</button>
-    </div>
-    <div class="btn-group">
-      <button class="btn" id="fullscreenBtn">Fullscreen</button>
-      <button class="btn" id="hideUIBtn">Hide UI</button>
-    </div>
-    <div class="btn-group">
-      <button class="btn" id="saveBtn">Save Frame</button>
-    </div>
-  </div>
+  <script type="module">
+    import * as THREE from 'three';
 
-  <div id="helpOverlay">
-    Space: play/pause • H: UI • F: fullscreen • S: save
-  </div>
-
-  <script>
     // ============ CONFIGURATION ============
-    let ZOOM_IN_DURATION = 10000;      // ms - time to zoom in to pixels
-    let ZOOM_OUT_DURATION = 10000;     // ms - time to zoom out from pixels to normal image
-    let MIN_ZOOM = 0.3;                // Zoomed out - normal image view
-    let MAX_ZOOM = 15.0;               // Zoomed in - individual pixels visible
+    const IMAGE_PATH = 'koi.jpg';          // Your image
+    const SAMPLE_STEP = 3;                  // Downsample: 2=dense, 3=balanced, 4=sparse
+    const POINT_SIZE = 8.0;                 // Base point size in pixels
+    const PARTICLE_RADIUS = 4.0;            // Sphere radius for particle cloud
 
-    // Visual parameters
-    let PIXEL_SIZE = 0.1;              // Size of each pixel square in image space
-    let PIXEL_GAP = 0.5;               // Gap between pixels (0 = no gap, 1 = full gap)
+    // Camera distances
+    const NEAR_DISTANCE = 3;                // Inside cloud (particles scattered)
+    const FAR_DISTANCE = 12;                // Far away (image resolved)
+    const START_DISTANCE = NEAR_DISTANCE;   // Start inside the cloud
 
-    // ============ STATE ============
-    const canvas = document.getElementById('canvas');
-    const ctx = canvas.getContext('2d', { willReadFrequently: true });
-    let img = null;
-    let offscreenCanvas = null;
-    let offscreenCtx = null;
-    let imageData = null;
+    // Animation
+    const DRIFT_STRENGTH = 0.02;            // Particle drift in cloud mode
 
-    // Transform state
-    let zoom = MAX_ZOOM; // Start zoomed IN (close up on pixels)
-    let offsetX = 0;
-    let offsetY = 0;
+    // ============ SCENE SETUP ============
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x000000);
 
-    // Animation state
-    let isPlaying = true;
-    let animStartTime = Date.now();
+    const camera = new THREE.PerspectiveCamera(
+      50,
+      window.innerWidth / window.innerHeight,
+      0.1,
+      100
+    );
+    camera.position.z = START_DISTANCE;
 
-    // Interaction state
-    let isDragging = false;
-    let lastMouseX = 0;
-    let lastMouseY = 0;
-    let needsRedraw = true;
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(window.devicePixelRatio);
+    document.getElementById('canvas').appendChild(renderer.domElement);
 
-    // UI state
-    let uiVisible = true;
+    // ============ SHADERS ============
+    const vertexShader = `
+      uniform float uProgress;
+      uniform float uSize;
+      uniform float uTime;
 
-    // ============ INITIALIZATION ============
-    function init() {
-      resizeCanvas();
-      window.addEventListener('resize', () => {
-        resizeCanvas();
-        needsRedraw = true;
+      attribute vec3 aImagePos;    // Image position
+      attribute vec3 aCloudPos;    // Cloud position
+      attribute vec3 aColor;       // Pixel color
+      attribute float aBrightness; // For size variation
+
+      varying vec3 vColor;
+
+      // Simple noise
+      float noise(vec3 p) {
+        return fract(sin(dot(p, vec3(12.9898, 78.233, 45.164))) * 43758.5453);
+      }
+
+      void main() {
+        vColor = aColor;
+
+        // Morph between cloud and image
+        vec3 pos = mix(aCloudPos, aImagePos, uProgress);
+
+        // Add drift that fades as image resolves
+        float driftAmount = (1.0 - uProgress) * ${DRIFT_STRENGTH};
+        vec3 drift = vec3(
+          noise(aCloudPos + uTime * 0.3),
+          noise(aCloudPos.yzx + uTime * 0.3 + 10.0),
+          noise(aCloudPos.zxy + uTime * 0.3 + 20.0)
+        ) * 2.0 - 1.0;
+        pos += drift * driftAmount;
+
+        vec4 mvPosition = modelViewMatrix * vec4(pos, 1.0);
+        gl_Position = projectionMatrix * mvPosition;
+
+        // Brightness-weighted size, scaled by distance
+        float sizeMult = 0.8 + aBrightness * 0.4;
+        gl_PointSize = uSize * sizeMult * (300.0 / -mvPosition.z);
+      }
+    `;
+
+    const fragmentShader = `
+      varying vec3 vColor;
+
+      void main() {
+        // Circular sprite
+        vec2 center = gl_PointCoord - vec2(0.5);
+        float dist = length(center);
+
+        if (dist > 0.5) discard;
+
+        // Soft edges
+        float alpha = smoothstep(0.5, 0.25, dist);
+
+        gl_FragColor = vec4(vColor, alpha);
+      }
+    `;
+
+    // ============ IMAGE LOADING ============
+    let pointsObject = null;
+    let material = null;
+
+    async function loadImage() {
+      return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.onload = () => resolve(img);
+        img.onerror = reject;
+        img.src = IMAGE_PATH;
+      });
+    }
+
+    function sampleImageData(img) {
+      const canvas = document.createElement('canvas');
+      canvas.width = img.width;
+      canvas.height = img.height;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0);
+      return ctx.getImageData(0, 0, img.width, img.height);
+    }
+
+    function createParticleSystem(img) {
+      const imageData = sampleImageData(img);
+      const { data, width, height } = imageData;
+      const particles = [];
+
+      // Sample pixels
+      for (let y = 0; y < height; y += SAMPLE_STEP) {
+        for (let x = 0; x < width; x += SAMPLE_STEP) {
+          const i = (y * width + x) * 4;
+          const r = data[i] / 255;
+          const g = data[i + 1] / 255;
+          const b = data[i + 2] / 255;
+          const a = data[i + 3] / 255;
+
+          // Skip transparent pixels
+          if (a < 0.1) continue;
+
+          // Image position (flat grid, centered)
+          const imgX = (x / width - 0.5) * 6;
+          const imgY = -(y / height - 0.5) * 6 * (height / width);
+          const imgZ = 0;
+
+          // Cloud position (uniform sphere)
+          const theta = Math.random() * Math.PI * 2;
+          const phi = Math.acos(Math.random() * 2 - 1);
+          const radius = Math.cbrt(Math.random()) * PARTICLE_RADIUS;
+          const cloudX = radius * Math.sin(phi) * Math.cos(theta);
+          const cloudY = radius * Math.sin(phi) * Math.sin(theta);
+          const cloudZ = radius * Math.cos(phi);
+
+          particles.push({
+            imagePos: [imgX, imgY, imgZ],
+            cloudPos: [cloudX, cloudY, cloudZ],
+            color: [r, g, b],
+            brightness: (r + g + b) / 3
+          });
+        }
+      }
+
+      console.log(`Created ${particles.length} particles`);
+
+      // Build geometry
+      const geometry = new THREE.BufferGeometry();
+      const count = particles.length;
+
+      const imagePositions = new Float32Array(count * 3);
+      const cloudPositions = new Float32Array(count * 3);
+      const colors = new Float32Array(count * 3);
+      const brightnesses = new Float32Array(count);
+
+      particles.forEach((p, i) => {
+        imagePositions[i * 3] = p.imagePos[0];
+        imagePositions[i * 3 + 1] = p.imagePos[1];
+        imagePositions[i * 3 + 2] = p.imagePos[2];
+
+        cloudPositions[i * 3] = p.cloudPos[0];
+        cloudPositions[i * 3 + 1] = p.cloudPos[1];
+        cloudPositions[i * 3 + 2] = p.cloudPos[2];
+
+        colors[i * 3] = p.color[0];
+        colors[i * 3 + 1] = p.color[1];
+        colors[i * 3 + 2] = p.color[2];
+
+        brightnesses[i] = p.brightness;
       });
 
-      setupControls();
-      setupFileInput();
-      setupInteraction();
-      setupKeyboard();
+      geometry.setAttribute('aImagePos', new THREE.BufferAttribute(imagePositions, 3));
+      geometry.setAttribute('aCloudPos', new THREE.BufferAttribute(cloudPositions, 3));
+      geometry.setAttribute('aColor', new THREE.BufferAttribute(colors, 3));
+      geometry.setAttribute('aBrightness', new THREE.BufferAttribute(brightnesses, 1));
 
-      // Auto-load the koi image
-      loadDefaultImage();
-    }
+      // Create material
+      material = new THREE.ShaderMaterial({
+        vertexShader,
+        fragmentShader,
+        uniforms: {
+          uProgress: { value: 0 },
+          uSize: { value: POINT_SIZE },
+          uTime: { value: 0 }
+        },
+        transparent: true,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending
+      });
 
-    function resizeCanvas() {
-      canvas.width = window.innerWidth;
-      canvas.height = window.innerHeight;
-    }
-
-    // ============ FILE LOADING ============
-    async function loadDefaultImage() {
-      const response = await fetch('koi.jpg');
-      const blob = await response.blob();
-      loadImageFile(blob);
-    }
-
-    function setupFileInput() {
-      const dropzone = document.getElementById('dropzone');
-      const fileInput = document.getElementById('fileInput');
-      const chooseBtn = document.getElementById('chooseBtn');
-
-      chooseBtn.onclick = () => fileInput.click();
-      fileInput.onchange = (e) => {
-        const file = e.target.files[0];
-        if (file) loadImageFile(file);
-      };
-
-      dropzone.ondragover = (e) => {
-        e.preventDefault();
-        dropzone.classList.add('dragover');
-      };
-      dropzone.ondragleave = () => dropzone.classList.remove('dragover');
-      dropzone.ondrop = (e) => {
-        e.preventDefault();
-        dropzone.classList.remove('dragover');
-        const file = e.dataTransfer.files[0];
-        if (file && file.type.startsWith('image/')) {
-          loadImageFile(file);
-        }
-      };
-    }
-
-    function loadImageFile(file) {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        img = new Image();
-        img.onload = () => {
-          // Hide dropzone
-          document.getElementById('dropzone').style.display = 'none';
-
-          // Create offscreen canvas for pixel sampling
-          offscreenCanvas = document.createElement('canvas');
-          offscreenCanvas.width = img.width;
-          offscreenCanvas.height = img.height;
-          offscreenCtx = offscreenCanvas.getContext('2d', { willReadFrequently: true });
-          offscreenCtx.drawImage(img, 0, 0);
-          imageData = offscreenCtx.getImageData(0, 0, img.width, img.height);
-
-          // Fit view to image
-          fitViewToImage();
-
-          // Start animation
-          animStartTime = Date.now();
-          needsRedraw = true;
-          animate();
-        };
-        img.src = e.target.result;
-      };
-      reader.readAsDataURL(file);
-    }
-
-    function fitViewToImage() {
-      if (!img) return;
-
-      // Reset to centered position
-      offsetX = 0;
-      offsetY = 0;
-
-      // Start zoomed in
-      zoom = MAX_ZOOM;
-      needsRedraw = true;
-    }
-
-    // ============ COORDINATE TRANSFORMS ============
-    function screenToWorld(screenX, screenY) {
-      const centerX = canvas.width / 2;
-      const centerY = canvas.height / 2;
-      const worldX = (screenX - centerX) / zoom - offsetX + img.width / 2;
-      const worldY = (screenY - centerY) / zoom - offsetY + img.height / 2;
-      return { x: worldX, y: worldY };
-    }
-
-    function worldToScreen(worldX, worldY) {
-      const centerX = canvas.width / 2;
-      const centerY = canvas.height / 2;
-      const screenX = (worldX - img.width / 2 + offsetX) * zoom + centerX;
-      const screenY = (worldY - img.height / 2 + offsetY) * zoom + centerY;
-      return { x: screenX, y: screenY };
-    }
-
-    function computeVisibleBounds() {
-      const tl = screenToWorld(0, 0);
-      const br = screenToWorld(canvas.width, canvas.height);
-      return {
-        left: Math.max(0, Math.floor(tl.x)),
-        top: Math.max(0, Math.floor(tl.y)),
-        right: Math.min(img.width, Math.ceil(br.x)),
-        bottom: Math.min(img.height, Math.ceil(br.y))
-      };
-    }
-
-    // ============ PIXEL SAMPLING ============
-    function getPixel(x, y) {
-      if (!imageData || x < 0 || y < 0 || x >= img.width || y >= img.height) {
-        return { r: 0, g: 0, b: 0, a: 255 };
-      }
-      const i = (Math.floor(y) * img.width + Math.floor(x)) * 4;
-      return {
-        r: imageData.data[i],
-        g: imageData.data[i + 1],
-        b: imageData.data[i + 2],
-        a: imageData.data[i + 3]
-      };
-    }
-
-    // ============ RENDERING ============
-    function drawFrame() {
-      if (!img) return;
-
-      ctx.fillStyle = '#000';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-      ctx.save();
-
-      // Apply transform
-      ctx.translate(canvas.width / 2, canvas.height / 2);
-      ctx.scale(zoom, zoom);
-      ctx.translate(offsetX, offsetY);
-
-      // Center the image
-      ctx.translate(-img.width / 2, -img.height / 2);
-
-      // Always render as pixels - gap size decreases as we zoom out
-      renderPixels();
-
-      ctx.restore();
-    }
-
-    function renderPixels() {
-      const bounds = computeVisibleBounds();
-
-      // Gap size scales with zoom - at max zoom full gap, at min zoom no gap
-      const zoomNorm = (zoom - MIN_ZOOM) / (MAX_ZOOM - MIN_ZOOM); // 0 = zoomed out, 1 = zoomed in
-      const currentGap = PIXEL_GAP * zoomNorm;
-
-      // When zoomed out, render smoothly instead of millions of tiny pixels
-      if (zoomNorm < 0.1) {
-        ctx.imageSmoothingEnabled = true;
-        ctx.drawImage(img, 0, 0);
-        return;
-      }
-
-      ctx.imageSmoothingEnabled = false;
-
-      // Adaptive pixel size based on zoom - render fewer pixels when zoomed out
-      const adaptivePixelSize = Math.max(PIXEL_SIZE, PIXEL_SIZE / (zoom * 0.1));
-      const pixelDrawSize = adaptivePixelSize * (1 - currentGap);
-
-      for (let y = bounds.top; y < bounds.bottom; y += adaptivePixelSize) {
-        for (let x = bounds.left; x < bounds.right; x += adaptivePixelSize) {
-          const pixel = getPixel(x + adaptivePixelSize / 2, y + adaptivePixelSize / 2);
-          ctx.fillStyle = `rgba(${pixel.r},${pixel.g},${pixel.b},${pixel.a / 255})`;
-
-          // Center the smaller square within the grid cell
-          const offset = (adaptivePixelSize - pixelDrawSize) / 2;
-          ctx.fillRect(x + offset, y + offset, pixelDrawSize, pixelDrawSize);
-        }
-      }
-    }
-
-    // ============ ANIMATION ============
-    // Easing function for smooth animation (ease-in-out)
-    function easeInOutCubic(t) {
-      return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
-    }
-
-    function updateAnimation() {
-      if (!isPlaying) return;
-
-      const elapsed = Date.now() - animStartTime;
-      const totalDuration = ZOOM_OUT_DURATION + ZOOM_IN_DURATION;
-
-      if (elapsed < ZOOM_OUT_DURATION) {
-        // Zoom out from close pixels to normal image
-        const t = elapsed / ZOOM_OUT_DURATION;
-        const easedT = easeInOutCubic(t);
-        zoom = MAX_ZOOM - (MAX_ZOOM - MIN_ZOOM) * easedT;
-      } else if (elapsed < totalDuration) {
-        // Zoom in from normal image to close pixels
-        const t = (elapsed - ZOOM_OUT_DURATION) / ZOOM_IN_DURATION;
-        const easedT = easeInOutCubic(t);
-        zoom = MIN_ZOOM + (MAX_ZOOM - MIN_ZOOM) * easedT;
-      } else {
-        // Loop - restart from zoomed in
-        animStartTime = Date.now();
-        zoom = MAX_ZOOM;
-      }
-
-      needsRedraw = true;
-    }
-
-    function animate() {
-      updateAnimation();
-
-      if (needsRedraw) {
-        drawFrame();
-        needsRedraw = false;
-      }
-
-      requestAnimationFrame(animate);
+      pointsObject = new THREE.Points(geometry, material);
+      pointsObject.frustumCulled = false;
+      scene.add(pointsObject);
     }
 
     // ============ INTERACTION ============
-    function setupInteraction() {
-      // Mouse wheel zoom
-      canvas.addEventListener('wheel', (e) => {
-        e.preventDefault();
+    let targetDistance = START_DISTANCE;
 
-        const mouseX = e.clientX;
-        const mouseY = e.clientY;
-        const worldBefore = screenToWorld(mouseX, mouseY);
+    window.addEventListener('wheel', (e) => {
+      e.preventDefault();
 
-        const zoomFactor = e.deltaY > 0 ? 0.9 : 1.1;
-        zoom *= zoomFactor;
-        zoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM * 2, zoom));
+      const delta = e.deltaY * 0.01;
+      targetDistance += delta;
+      targetDistance = Math.max(NEAR_DISTANCE, Math.min(FAR_DISTANCE, targetDistance));
+    }, { passive: false });
 
-        const worldAfter = screenToWorld(mouseX, mouseY);
-        offsetX += worldAfter.x - worldBefore.x;
-        offsetY += worldAfter.y - worldBefore.y;
+    // ============ ANIMATION ============
+    const clock = new THREE.Clock();
 
-        needsRedraw = true;
-      }, { passive: false });
+    function animate() {
+      requestAnimationFrame(animate);
 
-      // Click and drag
-      canvas.addEventListener('mousedown', (e) => {
-        isDragging = true;
-        lastMouseX = e.clientX;
-        lastMouseY = e.clientY;
-        canvas.classList.add('dragging');
-      });
+      if (!material) return;
 
-      canvas.addEventListener('mousemove', (e) => {
-        if (!isDragging) return;
+      const time = clock.getElapsedTime();
 
-        const dx = e.clientX - lastMouseX;
-        const dy = e.clientY - lastMouseY;
+      // Smooth camera movement
+      camera.position.z += (targetDistance - camera.position.z) * 0.05;
 
-        offsetX += dx / zoom;
-        offsetY += dy / zoom;
+      // Map distance to progress (near=0/cloud, far=1/image)
+      const progress = (camera.position.z - NEAR_DISTANCE) / (FAR_DISTANCE - NEAR_DISTANCE);
+      const easedProgress = progress * progress * (3 - 2 * progress); // Smoothstep
 
-        lastMouseX = e.clientX;
-        lastMouseY = e.clientY;
+      material.uniforms.uProgress.value = Math.max(0, Math.min(1, easedProgress));
+      material.uniforms.uTime.value = time;
 
-        needsRedraw = true;
-      });
-
-      canvas.addEventListener('mouseup', () => {
-        isDragging = false;
-        canvas.classList.remove('dragging');
-      });
-
-      canvas.addEventListener('mouseleave', () => {
-        isDragging = false;
-        canvas.classList.remove('dragging');
-      });
+      renderer.render(scene, camera);
     }
 
-    // ============ CONTROLS ============
-    function setupControls() {
-      const pixelSizeInput = document.getElementById('pixelSize');
-      const pixelGapInput = document.getElementById('pixelGap');
-      const durationInput = document.getElementById('duration');
-
-      pixelSizeInput.oninput = () => {
-        PIXEL_SIZE = parseFloat(pixelSizeInput.value);
-        document.getElementById('pixelSizeVal').textContent = PIXEL_SIZE;
-        needsRedraw = true;
-      };
-
-      pixelGapInput.oninput = () => {
-        PIXEL_GAP = parseFloat(pixelGapInput.value);
-        document.getElementById('pixelGapVal').textContent = PIXEL_GAP.toFixed(2);
-        needsRedraw = true;
-      };
-
-      durationInput.oninput = () => {
-        const duration = parseInt(durationInput.value) * 1000;
-        ZOOM_OUT_DURATION = duration;
-        ZOOM_IN_DURATION = duration;
-        document.getElementById('durationVal').textContent = durationInput.value;
-      };
-
-      document.getElementById('playPauseBtn').onclick = togglePlayPause;
-      document.getElementById('restartBtn').onclick = restart;
-      document.getElementById('fullscreenBtn').onclick = toggleFullscreen;
-      document.getElementById('hideUIBtn').onclick = toggleUI;
-      document.getElementById('saveBtn').onclick = saveFrame;
-    }
-
-    function togglePlayPause() {
-      isPlaying = !isPlaying;
-      document.getElementById('playPauseBtn').textContent = isPlaying ? 'Pause' : 'Play';
-      if (isPlaying) {
-        animStartTime = Date.now() - (Date.now() - animStartTime);
-      }
-    }
-
-    function restart() {
-      animStartTime = Date.now();
-      zoom = MAX_ZOOM; // Start zoomed in
-      isPlaying = true;
-      document.getElementById('playPauseBtn').textContent = 'Pause';
-      needsRedraw = true;
-    }
-
-    function toggleFullscreen() {
-      if (!document.fullscreenElement) {
-        document.documentElement.requestFullscreen();
-      } else {
-        document.exitFullscreen();
-      }
-    }
-
-    function toggleUI() {
-      uiVisible = !uiVisible;
-      document.getElementById('controls').classList.toggle('hidden', !uiVisible);
-      document.getElementById('helpOverlay').classList.toggle('visible', !uiVisible);
-    }
-
-    function saveFrame() {
-      const link = document.createElement('a');
-      link.download = `mosaic-${Date.now()}.png`;
-      link.href = canvas.toDataURL();
-      link.click();
-    }
-
-    // ============ KEYBOARD ============
-    function setupKeyboard() {
-      window.addEventListener('keydown', (e) => {
-        if (e.code === 'Space') {
-          e.preventDefault();
-          togglePlayPause();
-        } else if (e.code === 'KeyH') {
-          toggleUI();
-        } else if (e.code === 'KeyF') {
-          toggleFullscreen();
-        } else if (e.code === 'KeyS') {
-          saveFrame();
-        }
-      });
-    }
+    // ============ RESIZE ============
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
 
     // ============ START ============
-    init();
+    loadImage().then(img => {
+      createParticleSystem(img);
+      document.getElementById('loading').style.display = 'none';
+      animate();
+    }).catch(err => {
+      console.error('Failed to load image:', err);
+      document.getElementById('loading').innerHTML = 'Error: Failed to load image. Check console.';
+    });
   </script>
 </body>
 </html>
