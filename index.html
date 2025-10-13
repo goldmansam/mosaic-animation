@@ -198,10 +198,16 @@
       // Smooth camera movement
       camera.position.z += (targetCameraZ - camera.position.z) * 0.08;
 
-      // WASD movement
-      const moveSpeed = 0.1;
-      if (keys['w']) camera.position.z += moveSpeed;
-      if (keys['s']) camera.position.z -= moveSpeed;
+      // WASD movement - completely unrestricted
+      const moveSpeed = 0.15;
+      if (keys['w']) {
+        camera.position.z += moveSpeed;
+        targetCameraZ = camera.position.z;
+      }
+      if (keys['s']) {
+        camera.position.z -= moveSpeed;
+        targetCameraZ = camera.position.z;
+      }
       if (keys['a']) camera.position.x -= moveSpeed;
       if (keys['d']) camera.position.x += moveSpeed;
 
