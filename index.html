@@ -52,10 +52,10 @@
 
     // ============ CONFIGURATION ============
     const IMAGE_PATH = 'koi.jpg';
-    const SAMPLE_STEP = 3;              // Particle density (2=dense, 3=balanced, 4=sparse)
-    const DEPTH_RANGE = 4;              // How deep the particle cloud is (Z-axis spread when inside)
-    const IMAGE_SCALE = 12;             // Size of the final image when viewed from far (larger = fills screen better)
-    const PARTICLE_SIZE = 0.15;         // Base particle size (smaller for more spacing)
+    const SAMPLE_STEP = 2;              // Particle density (2=dense, 3=balanced, 4=sparse)
+    const DEPTH_RANGE = 3;              // How deep the particle cloud is (Z-axis spread when inside)
+    const IMAGE_SCALE = 10;             // Size of the final image when viewed from far
+    const PARTICLE_SIZE = 0.18;         // Base particle size
 
     // Camera starting position (center of the cloud)
     const START_POS = { x: 0, y: 0, z: 0 }; // Start at center of cloud
@@ -171,7 +171,7 @@
         size: PARTICLE_SIZE,
         vertexColors: true,
         transparent: true,
-        opacity: 0.6,  // Lower opacity for more spacious feel
+        opacity: 0.7,
         sizeAttenuation: true,
         blending: THREE.NormalBlending,
         depthWrite: false,
@@ -241,14 +241,12 @@
         // Calculate distance from camera to center of cloud
         const distance = camera.position.length();
 
-        // Flatten factor: 0 at center (distance=0), 1 at distance=2.5
-        // Image fully resolves very quickly at close distance
-        const flattenFactor = Math.max(0, Math.min(1, distance / 2.5));
+        // Flatten factor: 0 at center (distance=0), 1 at distance=4
+        const flattenFactor = Math.max(0, Math.min(1, distance / 4));
 
-        // Morph Z positions
+        // Morph Z positions - flatten aggressively
         for (let i = 0; i < originalZ.length; i++) {
-          // Compress depth as we zoom out
-          positions[i * 3 + 2] = originalZ[i] * (1 - flattenFactor * 0.85);
+          positions[i * 3 + 2] = originalZ[i] * (1 - flattenFactor * 0.95);
         }
 
         particles.geometry.attributes.position.needsUpdate = true;
@@ -260,10 +258,11 @@
         material.blending = THREE.NormalBlending;
 
         // Keep opacity constant for consistent brightness
-        material.opacity = 0.6;
+        material.opacity = 0.7;
 
-        // Keep particles larger to avoid gaps
-        material.size = PARTICLE_SIZE * (1 - flattenFactor * 0.1);
+        // Make particles LARGER as you zoom out so image stays detailed
+        // This compensates for perspective making them appear smaller
+        material.size = PARTICLE_SIZE * (1 + flattenFactor * 0.3);
       }
 
       renderer.render(scene, camera);
