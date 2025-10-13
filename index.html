@@ -73,9 +73,9 @@
 
     // ============ CONFIGURATION ============
     const IMAGE_PATH = 'koi.jpg';          // Your image
-    const SAMPLE_STEP = 3;                  // Downsample: 2=dense, 3=balanced, 4=sparse
-    const POINT_SIZE = 8.0;                 // Base point size in pixels
-    const PARTICLE_RADIUS = 4.0;            // Sphere radius for particle cloud
+    const SAMPLE_STEP = 4;                  // Downsample: 2=dense, 3=balanced, 4=sparse
+    const POINT_SIZE = 12.0;                // Base point size in pixels (increased for visibility)
+    const PARTICLE_RADIUS = 5.0;            // Sphere radius for particle cloud
 
     // Camera distances
     const NEAR_DISTANCE = 3;                // Inside cloud (particles scattered)
@@ -139,7 +139,7 @@
         gl_Position = projectionMatrix * mvPosition;
 
         // Brightness-weighted size, scaled by distance
-        float sizeMult = 0.8 + aBrightness * 0.4;
+        float sizeMult = 1.0 + aBrightness * 0.5;
         gl_PointSize = uSize * sizeMult * (300.0 / -mvPosition.z);
       }
     `;
@@ -157,7 +157,9 @@
         // Soft edges
         float alpha = smoothstep(0.5, 0.25, dist);
 
-        gl_FragColor = vec4(vColor, alpha);
+        // Boost brightness to make particles more visible
+        vec3 brightColor = vColor * 1.5;
+        gl_FragColor = vec4(brightColor, alpha);
       }
     `;
 
