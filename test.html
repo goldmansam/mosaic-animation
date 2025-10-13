@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Test</title>
+  <style>
+    body { margin: 0; background: #000; color: #fff; }
+    canvas { display: block; }
+  </style>
+</head>
+<body>
+  <div id="info" style="position: fixed; top: 20px; left: 20px; font-family: monospace;">
+    Loading...
+  </div>
+
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://unpkg.com/three@0.170.0/build/three.module.js"
+      }
+    }
+  </script>
+
+  <script type="module">
+    const info = document.getElementById('info');
+
+    try {
+      info.innerHTML = 'Step 1: Loading THREE.js...<br>';
+
+      const THREE = await import('three');
+      info.innerHTML += 'Step 2: THREE.js loaded!<br>';
+
+      // Create scene
+      const scene = new THREE.Scene();
+      scene.background = new THREE.Color(0x111111);
+      info.innerHTML += 'Step 3: Scene created<br>';
+
+      // Create camera
+      const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 100);
+      camera.position.z = 5;
+      info.innerHTML += 'Step 4: Camera created<br>';
+
+      // Create renderer
+      const renderer = new THREE.WebGLRenderer();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      document.body.appendChild(renderer.domElement);
+      info.innerHTML += 'Step 5: Renderer created<br>';
+
+      // Create a simple spinning cube to test
+      const geometry = new THREE.BoxGeometry(1, 1, 1);
+      const material = new THREE.MeshBasicMaterial({ color: 0xff0000 });
+      const cube = new THREE.Mesh(geometry, material);
+      scene.add(cube);
+      info.innerHTML += 'Step 6: Cube created<br>';
+
+      info.innerHTML += '<br><strong style="color: lime;">✓ Everything working! You should see a red spinning cube.</strong><br>';
+      info.innerHTML += 'If you see this text but NO cube, your GPU/WebGL might be disabled.';
+
+      // Animate
+      function animate() {
+        requestAnimationFrame(animate);
+        cube.rotation.x += 0.01;
+        cube.rotation.y += 0.01;
+        renderer.render(scene, camera);
+      }
+      animate();
+
+    } catch (err) {
+      info.innerHTML += '<br><strong style="color: red;">ERROR: ' + err.message + '</strong>';
+      console.error(err);
+    }
+  </script>
+</body>
+</html>
