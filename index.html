@@ -54,7 +54,7 @@
     const IMAGE_PATH = 'tobias-keller-73F4pKoUkM0-unsplash.jpg';
 
     // Particle density - sample almost every pixel for maximum clarity
-    const SAMPLE_STEP = 2;
+    const SAMPLE_STEP = 1.5;  // Denser sampling for sharper image
 
     // Depth range when in cloud mode (scattered in Z)
     const CLOUD_DEPTH = 24;  // 4x the original depth (was 6)
@@ -66,7 +66,7 @@
     const IMAGE_VIEW_DISTANCE = 15;
 
     // Particle appearance
-    const PARTICLE_SIZE = 0.06;
+    const PARTICLE_SIZE = 0.045;  // Smaller for finer detail
 
     // ============ SCENE SETUP ============
     const scene = new THREE.Scene();
