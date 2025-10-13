@@ -198,8 +198,8 @@
       // Smooth camera movement
       camera.position.z += (targetCameraZ - camera.position.z) * 0.08;
 
-      // WASD movement - completely unrestricted
-      const moveSpeed = 0.15;
+      // WASD movement - matches slow scroll speed
+      const moveSpeed = 0.03;  // Matches the 1/5 scroll speed
       if (keys['w']) {
         camera.position.z += moveSpeed;
         targetCameraZ = camera.position.z;
