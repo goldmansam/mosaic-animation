@@ -137,9 +137,34 @@
 
       console.log(`Created ${positions.length / 3} particles`);
 
-      geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-      geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
-      geometry.setAttribute('size', new THREE.Float32BufferAttribute(sizes, 1));
+      // Shuffle particles to avoid systematic ordering bias
+      const particleCount = positions.length / 3;
+      const indices = Array.from({ length: particleCount }, (_, i) => i);
+
+      // Fisher-Yates shuffle
+      for (let i = indices.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [indices[i], indices[j]] = [indices[j], indices[i]];
+      }
+
+      const shuffledPositions = new Float32Array(positions.length);
+      const shuffledColors = new Float32Array(colors.length);
+      const shuffledSizes = new Float32Array(sizes.length);
+
+      for (let i = 0; i < particleCount; i++) {
+        const srcIdx = indices[i];
+        shuffledPositions[i * 3] = positions[srcIdx * 3];
+        shuffledPositions[i * 3 + 1] = positions[srcIdx * 3 + 1];
+        shuffledPositions[i * 3 + 2] = positions[srcIdx * 3 + 2];
+        shuffledColors[i * 3] = colors[srcIdx * 3];
+        shuffledColors[i * 3 + 1] = colors[srcIdx * 3 + 1];
+        shuffledColors[i * 3 + 2] = colors[srcIdx * 3 + 2];
+        shuffledSizes[i] = sizes[srcIdx];
+      }
+
+      geometry.setAttribute('position', new THREE.Float32BufferAttribute(shuffledPositions, 3));
+      geometry.setAttribute('color', new THREE.Float32BufferAttribute(shuffledColors, 3));
+      geometry.setAttribute('size', new THREE.Float32BufferAttribute(shuffledSizes, 1));
 
       // Material with custom size attribute
       const material = new THREE.PointsMaterial({
@@ -149,7 +174,8 @@
         opacity: 0.7,
         sizeAttenuation: true,
         blending: THREE.NormalBlending,
-        depthWrite: false
+        depthWrite: false,
+        depthTest: true  // Ensure particles render in correct depth order
       });
 
       // Store original Z positions for morphing
