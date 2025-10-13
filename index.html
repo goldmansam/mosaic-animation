@@ -121,7 +121,7 @@
           const pz = (Math.random() - 0.5) * DEPTH_RANGE;
 
           positions.push(px, py, pz);
-          colors.push(r * 1.5, g * 1.5, b * 1.5); // Boost brightness
+          colors.push(r * 1.2, g * 1.2, b * 1.2); // Slight brightness boost
 
           // Size based on brightness
           const size = 0.05 + brightness * 0.05;
@@ -215,10 +215,27 @@
         // Morph Z positions
         for (let i = 0; i < originalZ.length; i++) {
           // Compress depth as we zoom out
-          positions[i * 3 + 2] = originalZ[i] * (1 - flattenFactor * 0.9);
+          positions[i * 3 + 2] = originalZ[i] * (1 - flattenFactor * 0.85);
         }
 
         particles.geometry.attributes.position.needsUpdate = true;
+
+        // Adjust material based on distance
+        const material = particles.material;
+
+        // Reduce opacity when far to prevent white washout
+        material.opacity = 0.9 - (flattenFactor * 0.3);
+
+        // Make particles smaller when flattened for clearer image
+        material.size = PARTICLE_SIZE * (1 - flattenFactor * 0.4);
+
+        // Switch to normal blending when far for true colors
+        if (flattenFactor > 0.5) {
+          material.blending = THREE.NormalBlending;
+          material.opacity = 0.8;
+        } else {
+          material.blending = THREE.AdditiveBlending;
+        }
       }
 
       renderer.render(scene, camera);
