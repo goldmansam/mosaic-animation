@@ -19,26 +19,9 @@
     canvas {
       display: block;
     }
-    #hint {
-      position: fixed;
-      bottom: 20px;
-      left: 50%;
-      transform: translateX(-50%);
-      font-size: 13px;
-      color: #777;
-      text-align: center;
-      pointer-events: none;
-      opacity: 0;
-      transition: opacity 1s;
-    }
-    #hint.show {
-      opacity: 1;
-    }
   </style>
 </head>
 <body>
-  <div id="hint">Scroll to zoom • Inside = particle cloud • Outside = clear image</div>
-
   <script type="importmap">
     {
       "imports": {
@@ -51,13 +34,13 @@
     import * as THREE from 'three';
 
     // ============ CONFIGURATION ============
-    const IMAGE_PATH = 'tobias-keller-73F4pKoUkM0-unsplash.jpg';
+    const IMAGE_PATH = 'samuel-arkwright.jpg';
 
-    // Particle density - balanced for clarity and performance
-    const SAMPLE_STEP = 1.5;  // Dense enough for clarity, fast enough for smooth zoom
+    // Particle density - every pixel for maximum clarity
+    const SAMPLE_STEP = 1;
 
     // Depth range when in cloud mode (scattered in Z)
-    const CLOUD_DEPTH = 24;  // 4x the original depth (was 6)
+    const CLOUD_DEPTH = 60;  // 2.5x original (was 24)
 
     // Starting position - inside the cloud
     const START_CAMERA_Z = 0;
@@ -65,8 +48,8 @@
     // Distance where image is fully resolved and clear
     const IMAGE_VIEW_DISTANCE = 15;
 
-    // Particle appearance - small particles for detail
-    const PARTICLE_SIZE = 0.04;
+    // Particle appearance - balanced for sharpness and coverage
+    const PARTICLE_SIZE = 0.008;
 
     // ============ SCENE SETUP ============
     const scene = new THREE.Scene();
@@ -78,16 +61,19 @@
       0.1,
       100
     );
-    camera.position.z = START_CAMERA_Z;
-    camera.lookAt(0, 0, 0);
+    // Camera will be controlled by keyframe animation
+    camera.position.set(-60, 0, 0);
+    camera.rotation.set(0, -Math.PI / 2, 0);
 
     const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setClearColor(0x000000, 1); // Black background
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     document.body.appendChild(renderer.domElement);
 
     // ============ LOAD IMAGE ============
     const img = new Image();
+    img.crossOrigin = "anonymous";  // Allow CORS for local files
     let points = null;
     let originalCloudZ = null;
 
@@ -111,19 +97,10 @@
       const imageWidth = 8;
       const imageHeight = imageWidth * aspect;
 
-      // Crop 20% from edges
-      const cropPercent = 0.2;
-      const startX = Math.floor(img.width * cropPercent);
-      const endX = Math.floor(img.width * (1 - cropPercent));
-      const startY = Math.floor(img.height * cropPercent);
-      const endY = Math.floor(img.height * (1 - cropPercent));
-      const croppedWidth = endX - startX;
-      const croppedHeight = endY - startY;
-
-      // Sample pixels densely from cropped region
+      // Sample pixels
       let particleCount = 0;
-      for (let y = startY; y < endY; y += SAMPLE_STEP) {
-        for (let x = startX; x < endX; x += SAMPLE_STEP) {
+      for (let y = 0; y < img.height; y += SAMPLE_STEP) {
+        for (let x = 0; x < img.width; x += SAMPLE_STEP) {
           const i = (y * img.width + x) * 4;
           const r = imageData.data[i] / 255;
           const g = imageData.data[i + 1] / 255;
@@ -132,9 +109,9 @@
 
           if (a < 0.1) continue; // Skip transparent
 
-          // Image position (X, Y for image, Z will morph) - adjusted for crop
-          const px = ((x - startX) / croppedWidth - 0.5) * imageWidth;
-          const py = -((y - startY) / croppedHeight - 0.5) * imageHeight;
+          // Image position (X, Y for image, Z will morph)
+          const px = (x / img.width - 0.5) * imageWidth;
+          const py = -(y / img.height - 0.5) * imageHeight;
 
           // Store cloud Z (random depth) separately
           const cloudZ = (Math.random() - 0.5) * CLOUD_DEPTH;
@@ -180,47 +157,47 @@
       // Store cloud Z positions for morphing
       originalCloudZ = shuffledCloudZ;
 
-      // Material - balanced opacity
+      // Material - square particles for perfect grid coverage
       const material = new THREE.PointsMaterial({
         size: PARTICLE_SIZE,
         vertexColors: true,
         transparent: true,
-        opacity: 0.5,  // Balanced for accurate colors
+        opacity: 1.0,  // Full opacity to eliminate grid
         sizeAttenuation: true,
         depthWrite: false
+        // No map = square particles (eliminates grid lines)
       });
 
       points = new THREE.Points(geometry, material);
       scene.add(points);
-
-      // Show hint
-      setTimeout(() => {
-        document.getElementById('hint').classList.add('show');
-      }, 500);
 
       animate();
     };
 
     img.onerror = () => {
       console.error('Failed to load image');
-      document.body.innerHTML = '<div style="padding: 40px; text-align: center; color: #999;">Failed to load koi.jpg</div>';
+      document.body.innerHTML = '<div style="padding: 40px; text-align: center; color: #999;">Failed to load image</div>';
     };
 
     img.src = IMAGE_PATH;
 
-    // ============ INTERACTION ============
-    let targetCameraZ = START_CAMERA_Z;
+    // ============ CINEMATIC ANIMATION ============
+    // Define keyframes with exact positions and rotations
+    const keyframes = [
+      { x: -60, y: 0, z: 0, rotX: 0, rotY: -Math.PI / 2, rotZ: 0, duration: 8000 },  // Keyframe 1: Side view
+      { x: 0, y: 0, z: 0, rotX: 0, rotY: 0, rotZ: 0, duration: 6000 },              // Keyframe 2: Center, face forward
+      { x: 0, y: 0, z: 14.65, rotX: 0, rotY: 0, rotZ: 0, duration: 6000 },          // Keyframe 3: Zoom out to reveal
+      { x: 0, y: 0, z: 0, rotX: 0, rotY: 0, rotZ: 0, duration: 6000 },              // Keyframe 4: Back to center
+      { x: -60, y: 0, z: 0, rotX: 0, rotY: -Math.PI / 2, rotZ: 0, duration: 8000 }  // Keyframe 5: Back to side view
+    ];
 
-    window.addEventListener('wheel', (e) => {
-      e.preventDefault();
-      targetCameraZ += e.deltaY * 0.002;  // 1/5 speed (was 0.01)
-      // No limits - move freely
-    }, { passive: false });
+    let animationStartTime = Date.now();
+    const TOTAL_LOOP_TIME = keyframes.reduce((sum, kf) => sum + kf.duration, 0);
 
-    // WASD controls
-    const keys = {};
-    window.addEventListener('keydown', (e) => keys[e.key.toLowerCase()] = true);
-    window.addEventListener('keyup', (e) => keys[e.key.toLowerCase()] = false);
+    // Easing function for smooth transitions
+    function easeInOutCubic(t) {
+      return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+    }
 
     // ============ ANIMATION ============
     function animate() {
@@ -228,21 +205,40 @@
 
       if (!points || !originalCloudZ) return;
 
-      // Smooth camera movement
-      camera.position.z += (targetCameraZ - camera.position.z) * 0.08;
+      // Calculate current time in loop
+      const elapsed = (Date.now() - animationStartTime) % TOTAL_LOOP_TIME;
 
-      // WASD movement - 6x faster than scroll
-      const moveSpeed = 0.18;  // 6x the scroll speed (2x faster than before)
-      if (keys['w']) {
-        camera.position.z += moveSpeed;
-        targetCameraZ = camera.position.z;
+      // Find current keyframe
+      let accumulatedTime = 0;
+      let currentKeyframeIndex = 0;
+      let localTime = elapsed;
+
+      for (let i = 0; i < keyframes.length; i++) {
+        if (elapsed < accumulatedTime + keyframes[i].duration) {
+          currentKeyframeIndex = i;
+          localTime = elapsed - accumulatedTime;
+          break;
+        }
+        accumulatedTime += keyframes[i].duration;
       }
-      if (keys['s']) {
-        camera.position.z -= moveSpeed;
-        targetCameraZ = camera.position.z;
-      }
-      if (keys['a']) camera.position.x -= moveSpeed;
-      if (keys['d']) camera.position.x += moveSpeed;
+
+      // Get current and next keyframe
+      const currentKF = keyframes[currentKeyframeIndex];
+      const nextKF = keyframes[(currentKeyframeIndex + 1) % keyframes.length];
+
+      // Calculate interpolation factor
+      let t = localTime / currentKF.duration;
+      t = easeInOutCubic(t);  // Apply easing for smooth transition
+
+      // Interpolate camera position
+      camera.position.x = currentKF.x + (nextKF.x - currentKF.x) * t;
+      camera.position.y = currentKF.y + (nextKF.y - currentKF.y) * t;
+      camera.position.z = currentKF.z + (nextKF.z - currentKF.z) * t;
+
+      // Interpolate camera rotation (slowly transition angle while moving)
+      camera.rotation.x = currentKF.rotX + (nextKF.rotX - currentKF.rotX) * t;
+      camera.rotation.y = currentKF.rotY + (nextKF.rotY - currentKF.rotY) * t;
+      camera.rotation.z = currentKF.rotZ + (nextKF.rotZ - currentKF.rotZ) * t;
 
       // Calculate morph factor
       // At z=0 (inside): morphFactor = 0 (full cloud)
@@ -266,18 +262,18 @@
 
       // Scale up the entire particle system as it resolves to fill entire window
       // morphFactor=0 (cloud): scale = 1.0
-      // morphFactor=1 (image): scale = 2.5 (fills entire screen)
-      const scale = 1.0 + (morphFactor * 1.5);
+      // morphFactor=1 (image): scale = 6.0 (fills entire screen)
+      const scale = 1.0 + (morphFactor * 5.0);
       points.scale.set(scale, scale, scale);
 
-      // Adjust particle size and opacity to prevent grid artifacts
+      // Adjust particle size and opacity - optimized for clarity
       const material = points.material;
 
-      // Make particles grow with scale for clear image
+      // Minimal size multiplier for maximum sharpness
       material.size = PARTICLE_SIZE * scale * 2.0;
 
-      // Balanced opacity
-      material.opacity = 0.5;
+      // Full opacity to eliminate grid visibility
+      material.opacity = 1.0;
 
       renderer.render(scene, camera);
     }
