@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Clothing Store Showcase</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      background: #000;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      overflow: hidden;
+      height: 100vh;
+    }
+
+    #canvas-container {
+      width: 100%;
+      height: 100%;
+    }
+  </style>
+</head>
+<body>
+  <div id="canvas-container"></div>
+
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://unpkg.com/three@0.170.0/build/three.module.js",
+        "three/addons/": "https://unpkg.com/three@0.170.0/examples/jsm/"
+      }
+    }
+  </script>
+
+  <script type="module">
+    import * as THREE from 'three';
+    import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+    import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
+    import { EXRLoader } from 'three/addons/loaders/EXRLoader.js';
+
+    // Scene setup
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0xffffff); // Will be replaced by stadium HDRI
+
+    const camera = new THREE.PerspectiveCamera(
+      75,
+      window.innerWidth / window.innerHeight,
+      0.1,
+      1000
+    );
+    // Will be positioned after store loads
+    let initialCameraSet = false;
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.2;
+    document.getElementById('canvas-container').appendChild(renderer.domElement);
+
+    // Load Stadium HDRI
+    const exrLoader = new EXRLoader();
+    exrLoader.load('Stadium_4k.exr', (texture) => {
+      texture.mapping = THREE.EquirectangularReflectionMapping;
+      scene.background = texture;
+      scene.environment = texture;
+      console.log('Stadium HDRI loaded');
+    }, undefined, (error) => {
+      console.error('Error loading Stadium HDRI:', error);
+      console.log('Using white background instead');
+    });
+
+    // Lighting - Much brighter
+    const ambientLight = new THREE.AmbientLight(0xffffff, 2.0);
+    scene.add(ambientLight);
+
+    const directionalLight = new THREE.DirectionalLight(0xffffff, 2.0);
+    directionalLight.position.set(10, 10, 5);
+    directionalLight.castShadow = true;
+    scene.add(directionalLight);
+
+    // Add additional lights for brightness
+    const fillLight = new THREE.DirectionalLight(0xffffff, 1.5);
+    fillLight.position.set(-10, 10, -5);
+    scene.add(fillLight);
+
+    const backLight = new THREE.DirectionalLight(0xffffff, 1.0);
+    backLight.position.set(0, 5, -10);
+    scene.add(backLight);
+
+    // First-person controls (click to activate)
+    const controls = new PointerLockControls(camera, document.body);
+
+    // Click to start walking
+    document.body.addEventListener('click', () => {
+      controls.lock();
+    });
+
+    controls.addEventListener('lock', () => {
+      console.log('Controls locked - use Arrow Keys to move, mouse to look around');
+    });
+
+    controls.addEventListener('unlock', () => {
+      console.log('Controls unlocked - click to re-enter');
+    });
+
+    scene.add(controls.getObject());
+
+    // Movement
+    const moveSpeed = 0.08; // Slower movement
+    const moveState = { forward: false, backward: false, left: false, right: false };
+
+    // Path creation for clothing movement
+    const pathWaypoints = [
+      {
+        "x": 4.160000000000002,
+        "y": 0.5,
+        "z": 20.74000000000004
+      },
+      {
+        "x": 5.600000000000003,
+        "y": 0.5,
+        "z": 11.460000000000138
+      },
+      {
+        "x": 5.600000000000003,
+        "y": 0.5,
+        "z": -6.939999999999876
+      },
+      {
+        "x": -6.882263669116063,
+        "y": 0.5,
+        "z": -7.154228136959438
+      },
+      {
+        "x": -6.7633441334354165,
+        "y": 0.5,
+        "z": 11.405390882407119
+      },
+      {
+        "x": -6.146900413094533,
+        "y": 0.5,
+        "z": 21.028412850931645
+      }
+    ];
+    const waypointMarkers = [];
+    let isRecordingPath = false;
+
+    document.addEventListener('keydown', (e) => {
+      switch(e.code) {
+        case 'ArrowUp': moveState.forward = true; break;
+        case 'ArrowDown': moveState.backward = true; break;
+        case 'ArrowLeft': moveState.left = true; break;
+        case 'ArrowRight': moveState.right = true; break;
+        case 'KeyP': // Press P to add current position as waypoint
+          if (controls.isLocked) {
+            const waypoint = {
+              x: camera.position.x,
+              y: 0.5, // Keep at ground level
+              z: camera.position.z
+            };
+            pathWaypoints.push(waypoint);
+
+            // Add visual marker for waypoint
+            const markerGeometry = new THREE.SphereGeometry(0.3, 16, 16);
+            const markerMaterial = new THREE.MeshStandardMaterial({
+              color: 0xff0000,
+              emissive: 0xff0000,
+              emissiveIntensity: 0.5
+            });
+            const marker = new THREE.Mesh(markerGeometry, markerMaterial);
+            marker.position.set(waypoint.x, waypoint.y, waypoint.z);
+            scene.add(marker);
+            waypointMarkers.push(marker);
+
+            console.log(`Waypoint ${pathWaypoints.length} added:`, waypoint);
+            console.log('Total waypoints:', pathWaypoints.length);
+          }
+          break;
+        case 'KeyS': // Press S to start/stop path recording mode
+          if (e.ctrlKey || e.metaKey) return; // Don't interfere with browser save
+          isRecordingPath = !isRecordingPath;
+          console.log(isRecordingPath ? 'Path recording started - press P to add waypoints' : 'Path recording stopped');
+          break;
+        case 'KeyC': // Press C to clear all waypoints
+          pathWaypoints.length = 0;
+          // Remove visual markers
+          waypointMarkers.forEach(marker => scene.remove(marker));
+          waypointMarkers.length = 0;
+          console.log('All waypoints cleared');
+          break;
+        case 'KeyL': // Press L to log the complete path
+          console.log('Complete path waypoints:', JSON.stringify(pathWaypoints, null, 2));
+          break;
+      }
+    });
+
+    document.addEventListener('keyup', (e) => {
+      switch(e.code) {
+        case 'ArrowUp': moveState.forward = false; break;
+        case 'ArrowDown': moveState.backward = false; break;
+        case 'ArrowLeft': moveState.left = false; break;
+        case 'ArrowRight': moveState.right = false; break;
+      }
+    });
+
+    const loader = new GLTFLoader();
+    const clothingModels = [];
+
+    // Load the clothing store
+    loader.load('clothing_store.glb', (gltf) => {
+      const store = gltf.scene;
+
+      // Center and scale the store
+      const box = new THREE.Box3().setFromObject(store);
+      const center = box.getCenter(new THREE.Vector3());
+      const size = box.getSize(new THREE.Vector3());
+
+      // Scale store to 3x larger
+      const maxDim = Math.max(size.x, size.y, size.z);
+      const scale = 30 / maxDim; // 3x larger (was 10, now 30)
+      store.scale.setScalar(scale);
+
+      store.position.x = -center.x * scale;
+      store.position.y = -center.y * scale;
+      store.position.z = -center.z * scale;
+
+      store.traverse((child) => {
+        if (child.isMesh) {
+          child.castShadow = true;
+          child.receiveShadow = true;
+        }
+      });
+
+      scene.add(store);
+
+      // Calculate store dimensions after scaling
+      const scaledBox = new THREE.Box3().setFromObject(store);
+      const scaledSize = scaledBox.getSize(new THREE.Vector3());
+      const targetHeight = scaledSize.y * 0.05; // 5% of store height
+
+      console.log('Store loaded');
+      console.log('Store height:', scaledSize.y.toFixed(2));
+      console.log('Clothing center height (5%):', targetHeight.toFixed(2));
+      console.log('Store size - X:', scaledSize.x.toFixed(2), 'Z:', scaledSize.z.toFixed(2));
+
+      // Position camera in front of the brick border (outside the store)
+      const frontEdge = scaledBox.max.z + (scaledSize.z * 0.35); // 35% beyond front edge (moved back)
+      camera.position.set(0, 0.5, frontEdge);
+      camera.lookAt(0, 0.5, 0);
+      initialCameraSet = true;
+
+      // Store camera z position for clothing path
+      window.cameraStartZ = frontEdge;
+      console.log('Camera positioned at brick border, z:', frontEdge.toFixed(2));
+
+      // Create brick ground beneath the store
+      const groundSize = createBrickGround(scaledSize, scaledBox);
+
+      // Add columns at the four corners of the brick plane
+      addCornerColumns(groundSize, scaledBox);
+
+      // After store loads, load clothing models at 5% height
+      loadClothingModels(targetHeight, scaledSize);
+    });
+
+    function createBrickGround(storeSize, storeBox) {
+      // Calculate ground size
+      const groundSize = Math.max(storeSize.x, storeSize.z) * 2.5; // 150% larger than store
+
+      // Load brick texture
+      const textureLoader = new THREE.TextureLoader();
+      textureLoader.load('mixed_brick_wall_diff_4k.jpg', (brickTexture) => {
+        brickTexture.wrapS = THREE.RepeatWrapping;
+        brickTexture.wrapT = THREE.RepeatWrapping;
+        brickTexture.repeat.set(8, 8); // Tile the texture
+
+        // Create large ground plane
+        const groundGeometry = new THREE.PlaneGeometry(groundSize, groundSize);
+        const groundMaterial = new THREE.MeshStandardMaterial({
+          map: brickTexture,
+          roughness: 0.8,
+          metalness: 0.1,
+          color: new THREE.Color(0.4, 0.4, 0.4) // Darken to 40% brightness
+        });
+        const ground = new THREE.Mesh(groundGeometry, groundMaterial);
+        ground.rotation.x = -Math.PI / 2; // Rotate to be horizontal
+
+        // Position beneath the bottom of the store model
+        ground.position.y = storeBox.min.y - 0.1; // Slightly below the store's lowest point
+
+        ground.receiveShadow = true;
+        scene.add(ground);
+        console.log('Brick ground layered beneath store at y:', ground.position.y.toFixed(2));
+      });
+
+      return groundSize;
+    }
+
+    function addCornerColumns(groundSize, storeBox) {
+      // Load Greek column model
+      const columnLoader = new GLTFLoader();
+      columnLoader.load('greek_column.glb', (gltf) => {
+        const columnTemplate = gltf.scene;
+
+        // Scale column appropriately
+        const columnBox = new THREE.Box3().setFromObject(columnTemplate);
+        const columnSize = columnBox.getSize(new THREE.Vector3());
+        const columnScale = 35 / columnSize.y; // Make columns 35 units tall (5x larger than 7)
+        columnTemplate.scale.setScalar(columnScale);
+
+        // Position columns at the four corners of the brick plane
+        const halfSize = groundSize / 2;
+        const groundY = storeBox.min.y - 0.1; // Same as brick ground
+
+        const cornerPositions = [
+          { x: halfSize, z: halfSize },     // Front-right corner
+          { x: -halfSize, z: halfSize },    // Front-left corner
+          { x: halfSize, z: -halfSize },    // Back-right corner
+          { x: -halfSize, z: -halfSize }    // Back-left corner
+        ];
+
+        cornerPositions.forEach((pos) => {
+          const column = columnTemplate.clone();
+          column.position.set(pos.x, groundY, pos.z);
+          column.traverse((child) => {
+            if (child.isMesh) {
+              child.castShadow = true;
+              child.receiveShadow = true;
+            }
+          });
+          scene.add(column);
+        });
+
+        console.log('Greek columns added at four corners');
+      });
+    }
+
+    function loadClothingModels(targetHeight, storeSize) {
+      // Position clothing in open areas within the store on the ground floor
+      // Use small spread to keep them in open floor spaces
+      const safeZoneX = storeSize.x * 0.25; // Keep within 50% of store width
+      const safeZoneZ = storeSize.z * 0.25; // Keep within 50% of store depth
+
+      // Calculate 1/30 of store width for nudge amount
+      const nudgeRight = storeSize.x / 30;
+
+      const clothingConfigs = [
+        {
+          file: 'Love (Final).gltf',
+          position: { x: safeZoneX * 0.55 + nudgeRight, y: targetHeight, z: safeZoneZ * 0.7 }, // Nudged right
+          rotation: Math.PI * 0.3
+        },
+        {
+          file: 'Pink Floyd (Final).gltf',
+          position: { x: -safeZoneX * 1.125 + nudgeRight, y: targetHeight, z: safeZoneZ * 0.9 }, // Nudged right
+          rotation: Math.PI * 0.7,
+          scaleFactor: 1.05
+        },
+        {
+          file: 'Purple Crown (Final).gltf',
+          position: { x: safeZoneX * 0.6, y: targetHeight, z: -safeZoneZ * 0.8 },
+          rotation: Math.PI * 1.2
+        },
+        {
+          file: 'Skyline Final.gltf',
+          position: { x: -safeZoneX * 0.7, y: targetHeight, z: -safeZoneZ * 0.6 },
+          rotation: Math.PI * 1.8
+        },
+        {
+          file: 'Yellow Brick (final).gltf',
+          position: { x: -safeZoneX * 0.325 + nudgeRight, y: targetHeight, z: 0 }, // Nudged right
+          rotation: Math.PI * 0.5
+        }
+      ];
+      clothingConfigs.forEach((config, index) => {
+        loader.load(config.file, (gltf) => {
+          const model = gltf.scene;
+
+          // Center and scale model
+          const box = new THREE.Box3().setFromObject(model);
+          const center = box.getCenter(new THREE.Vector3());
+          const size = box.getSize(new THREE.Vector3());
+
+          // Scale to consistent height
+          let scale = 1.5 / size.y;
+          if (config.scaleFactor) scale *= config.scaleFactor;
+
+          model.scale.setScalar(scale);
+
+          // Center the model
+          model.position.x = -center.x * scale;
+          model.position.y = -center.y * scale;
+          model.position.z = -center.z * scale;
+
+          // Create container for positioning
+          const container = new THREE.Group();
+          container.add(model);
+
+          // Set floating position
+          container.position.set(
+            config.position.x,
+            config.position.y,
+            config.position.z
+          );
+          container.rotation.y = config.rotation;
+
+          model.traverse((child) => {
+            if (child.isMesh) {
+              child.castShadow = true;
+              child.receiveShadow = true;
+            }
+          });
+
+          scene.add(container);
+
+          // Calculate path radius from initial position
+          const pathRadius = Math.sqrt(config.position.x * config.position.x + config.position.z * config.position.z);
+          const startAngle = Math.atan2(config.position.z, config.position.x);
+
+          clothingModels.push({
+            container,
+            baseY: config.position.y,
+            phase: index * 0.5,
+            pathRadius: pathRadius,
+            startAngle: startAngle
+          });
+
+          console.log(`Loaded ${config.file} - pathRadius: ${pathRadius.toFixed(2)}, startAngle: ${startAngle.toFixed(2)}`);
+        });
+      });
+    }
+
+    // Animation
+    let time = 0;
+
+    function animate() {
+      requestAnimationFrame(animate);
+
+      time += 0.01;
+
+      // Handle Arrow Key movement
+      if (controls.isLocked) {
+        const direction = new THREE.Vector3();
+        camera.getWorldDirection(direction);
+        direction.y = 0; // Keep movement horizontal
+        direction.normalize();
+
+        const right = new THREE.Vector3();
+        right.crossVectors(camera.up, direction).normalize();
+
+        if (moveState.forward) {
+          camera.position.addScaledVector(direction, -moveSpeed);
+        }
+        if (moveState.backward) {
+          camera.position.addScaledVector(direction, moveSpeed);
+        }
+        if (moveState.left) {
+          camera.position.addScaledVector(right, moveSpeed); // Reversed for correct left movement
+        }
+        if (moveState.right) {
+          camera.position.addScaledVector(right, -moveSpeed); // Reversed for correct right movement
+        }
+      }
+
+      // Animate clothing items
+      clothingModels.forEach((item, index) => {
+        const floatAmount = Math.sin(time + item.phase) * 0.1;
+        item.container.position.y = item.baseY + floatAmount;
+
+        // If path waypoints exist, follow the path
+        if (pathWaypoints.length >= 2) {
+          const speed = 0.05; // Speed along path
+          const spacing = 0.2; // Spacing between items (0-1 range)
+
+          // Calculate position along path (0 to 1)
+          const progress = ((time * speed) + (index * spacing)) % 1;
+
+          // Calculate which segment and position within that segment
+          const totalSegments = pathWaypoints.length;
+          const segmentProgress = progress * totalSegments;
+          const currentSegment = Math.floor(segmentProgress);
+          const segmentT = segmentProgress - currentSegment;
+
+          // Get start and end waypoints (loop back to start)
+          const start = pathWaypoints[currentSegment % totalSegments];
+          const end = pathWaypoints[(currentSegment + 1) % totalSegments];
+
+          // Interpolate position
+          item.container.position.x = start.x + (end.x - start.x) * segmentT;
+          item.container.position.z = start.z + (end.z - start.z) * segmentT;
+
+          // Face direction of movement
+          const dx = end.x - start.x;
+          const dz = end.z - start.z;
+          const baseRotation = Math.atan2(dx, dz);
+
+          // Add 180-degree rotation along the path (full rotation per complete path loop)
+          const additionalRotation = progress * Math.PI * 2; // Full 360-degree rotation per loop
+          item.container.rotation.y = baseRotation + additionalRotation;
+        } else {
+          // No path - just rotate in place
+          item.container.rotation.y += 0.005;
+        }
+      });
+
+      renderer.render(scene, camera);
+    }
+
+    // Handle window resize
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+    animate();
+  </script>
+</body>
+</html>
