@@ -43,7 +43,27 @@
 
     // Scene setup
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x000000);
+
+    // Create premium gradient background
+    const canvas = document.createElement('canvas');
+    canvas.width = 2048;
+    canvas.height = 2048;
+    const ctx = canvas.getContext('2d');
+
+    // Create vertical gradient (dark navy to lighter blue)
+    const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+    gradient.addColorStop(0, '#0a1628'); // Dark navy top
+    gradient.addColorStop(0.5, '#1a2845'); // Mid blue
+    gradient.addColorStop(1, '#2a3a5a'); // Lighter blue bottom
+
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    const texture = new THREE.CanvasTexture(canvas);
+    scene.background = texture;
+
+    // Add atmospheric fog for depth
+    scene.fog = new THREE.Fog(0x1a2845, 10, 35);
 
     const camera = new THREE.PerspectiveCamera(
       50,
@@ -51,7 +71,7 @@
       0.1,
       1000
     );
-    camera.position.set(0, 0, 8); // Eye level - Y at 0 instead of 2
+    camera.position.set(0, 0, 12); // Zoomed out view
     camera.lookAt(0, 0, 0); // Look at center of circle
 
     const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -115,6 +135,84 @@
     controls.autoRotate = false;
     controls.enabled = false; // Disable controls entirely
 
+    // Add brick ground plane
+    const textureLoader = new THREE.TextureLoader();
+    textureLoader.load('mixed_brick_wall_diff_4k.jpg', (brickTexture) => {
+      brickTexture.wrapS = THREE.RepeatWrapping;
+      brickTexture.wrapT = THREE.RepeatWrapping;
+      brickTexture.repeat.set(8, 8); // Tile more for smaller bricks
+
+      const groundGeometry = new THREE.PlaneGeometry(30, 30);
+      const groundMaterial = new THREE.MeshStandardMaterial({
+        map: brickTexture,
+        roughness: 0.8,
+        metalness: 0.1,
+        color: new THREE.Color(0.4, 0.4, 0.4) // Darken to 40% brightness
+      });
+      const ground = new THREE.Mesh(groundGeometry, groundMaterial);
+      ground.rotation.x = -Math.PI / 2; // Rotate to be horizontal
+      ground.position.y = -1; // Position below models
+      ground.receiveShadow = true;
+      scene.add(ground);
+      console.log('Brick ground added');
+    });
+
+    // Load Greek columns and place around the perimeter
+    const columnLoader = new GLTFLoader();
+    columnLoader.load('greek_column.glb', (gltf) => {
+      const columnTemplate = gltf.scene;
+
+      // Get column size to scale appropriately
+      const box = new THREE.Box3().setFromObject(columnTemplate);
+      const size = box.getSize(new THREE.Vector3());
+      const scale = 24 / size.y; // Scale to 24 units tall (8x larger than original)
+      columnTemplate.scale.setScalar(scale);
+
+      // Place columns around the perimeter (30x30 plane)
+      const planeSize = 30;
+      const numColumnsPerSide = 4; // 4 columns per side
+      const spacing = planeSize / (numColumnsPerSide - 1);
+
+      const positions = [];
+
+      // Front and back sides
+      for (let i = 0; i < numColumnsPerSide; i++) {
+        const x = -planeSize/2 + i * spacing;
+        positions.push({ x: x, z: planeSize/2 });  // Front
+        positions.push({ x: x, z: -planeSize/2 }); // Back
+      }
+
+      // Left and right sides (skip corners to avoid duplicates)
+      for (let i = 1; i < numColumnsPerSide - 1; i++) {
+        const z = -planeSize/2 + i * spacing;
+        positions.push({ x: -planeSize/2, z: z }); // Left
+        positions.push({ x: planeSize/2, z: z });  // Right
+      }
+
+      // Create a column at each position
+      positions.forEach(pos => {
+        const column = columnTemplate.clone();
+        column.position.set(pos.x, -1, pos.z); // Same Y as ground
+        column.traverse((child) => {
+          if (child.isMesh) {
+            child.castShadow = true;
+            child.receiveShadow = true;
+
+            // Make columns look more realistic - stone-like material
+            if (child.material) {
+              child.material = child.material.clone();
+              child.material.color.setHex(0x8a8a8a); // Gray stone color
+              child.material.roughness = 0.9; // Very rough, not shiny
+              child.material.metalness = 0.0; // Not metallic at all
+            }
+          }
+        });
+        scene.add(column);
+      });
+
+      console.log(`Added ${positions.length} Greek columns`);
+    });
+
     // Load models
     const loader = new GLTFLoader();
     const models = [];
@@ -176,6 +274,20 @@
               child.receiveShadow = true;
             }
           });
+
+          // Add dramatic spotlight above each model
+          const spotlight = new THREE.SpotLight(0xffffff, 3);
+          spotlight.position.set(0, 8, 0);
+          spotlight.angle = Math.PI / 6; // 30 degree cone
+          spotlight.penumbra = 0.3; // Soft edges
+          spotlight.decay = 2;
+          spotlight.distance = 20;
+          spotlight.castShadow = true;
+          spotlight.shadow.mapSize.width = 1024;
+          spotlight.shadow.mapSize.height = 1024;
+          spotlight.target = container;
+          container.add(spotlight);
+          scene.add(spotlight.target);
 
           scene.add(container);
           models.push(container);
