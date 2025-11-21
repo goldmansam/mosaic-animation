@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Model Dimensions</title>
+</head>
+<body>
+  <h1>Checking clothing_store.glb dimensions...</h1>
+  <pre id="output"></pre>
+
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://unpkg.com/three@0.170.0/build/three.module.js",
+        "three/addons/": "https://unpkg.com/three@0.170.0/examples/jsm/"
+      }
+    }
+  </script>
+
+  <script type="module">
+    import * as THREE from 'three';
+    import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+
+    const loader = new GLTFLoader();
+    const output = document.getElementById('output');
+
+    loader.load('clothing_store.glb', (gltf) => {
+      const model = gltf.scene;
+
+      // Get bounding box
+      const box = new THREE.Box3().setFromObject(model);
+      const size = box.getSize(new THREE.Vector3());
+      const center = box.getCenter(new THREE.Vector3());
+
+      const info = `
+Clothing Store Model Dimensions:
+================================
+
+Original Size:
+  Width (X):  ${size.x.toFixed(3)} units
+  Height (Y): ${size.y.toFixed(3)} units
+  Depth (Z):  ${size.z.toFixed(3)} units
+
+Center Point:
+  X: ${center.x.toFixed(3)}
+  Y: ${center.y.toFixed(3)}
+  Z: ${center.z.toFixed(3)}
+
+Bounding Box Min:
+  X: ${box.min.x.toFixed(3)}
+  Y: ${box.min.y.toFixed(3)}
+  Z: ${box.min.z.toFixed(3)}
+
+Bounding Box Max:
+  X: ${box.max.x.toFixed(3)}
+  Y: ${box.max.y.toFixed(3)}
+  Z: ${box.max.z.toFixed(3)}
+
+Maximum Dimension: ${Math.max(size.x, size.y, size.z).toFixed(3)} units
+
+Current Scale in store.html: 30 / ${Math.max(size.x, size.y, size.z).toFixed(3)} = ${(30 / Math.max(size.x, size.y, size.z)).toFixed(3)}x
+
+Scaled Dimensions (in store.html):
+  Width (X):  ${(size.x * (30 / Math.max(size.x, size.y, size.z))).toFixed(3)} units
+  Height (Y): ${(size.y * (30 / Math.max(size.x, size.y, size.z))).toFixed(3)} units
+  Depth (Z):  ${(size.z * (30 / Math.max(size.x, size.y, size.z))).toFixed(3)} units
+      `;
+
+      output.textContent = info;
+    }, undefined, (error) => {
+      output.textContent = 'Error loading model: ' + error;
+    });
+  </script>
+</body>
+</html>

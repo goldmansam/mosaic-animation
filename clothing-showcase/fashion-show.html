@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Fraternity Fashion Show</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      background: #000;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      overflow: hidden;
+      height: 100vh;
+    }
+
+    #canvas-container {
+      width: 100%;
+      height: 100%;
+    }
+
+    #scene-label {
+      position: absolute;
+      bottom: 40px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(0, 0, 0, 0.8);
+      color: white;
+      padding: 15px 40px;
+      border-radius: 8px;
+      font-size: 24px;
+      font-weight: 600;
+      letter-spacing: 2px;
+      opacity: 0;
+      transition: opacity 0.5s;
+      z-index: 100;
+    }
+
+    #scene-label.visible {
+      opacity: 1;
+    }
+
+    #progress {
+      position: absolute;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      gap: 10px;
+      z-index: 100;
+    }
+
+    .dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.3);
+      transition: all 0.3s;
+    }
+
+    .dot.active {
+      background: white;
+      transform: scale(1.3);
+    }
+  </style>
+</head>
+<body>
+  <div id="canvas-container"></div>
+  <div id="scene-label"></div>
+  <div id="progress">
+    <div class="dot active"></div>
+    <div class="dot"></div>
+    <div class="dot"></div>
+    <div class="dot"></div>
+    <div class="dot"></div>
+  </div>
+
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://unpkg.com/three@0.170.0/build/three.module.js",
+        "three/addons/": "https://unpkg.com/three@0.170.0/examples/jsm/"
+      }
+    }
+  </script>
+
+  <script type="module">
+    import * as THREE from 'three';
+    import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+    import { EXRLoader } from 'three/addons/loaders/EXRLoader.js';
+    import { RGBELoader } from 'three/addons/loaders/RGBELoader.js';
+
+    // Scene setup
+    const scene = new THREE.Scene();
+
+    const camera = new THREE.PerspectiveCamera(
+      50,
+      window.innerWidth / window.innerHeight,
+      0.1,
+      1000
+    );
+    camera.position.set(0, 1.5, 5);
+    camera.lookAt(0, 1, 0);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.0;
+    document.getElementById('canvas-container').appendChild(renderer.domElement);
+
+    // Lighting
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+    scene.add(ambientLight);
+
+    const keyLight = new THREE.DirectionalLight(0xffffff, 1);
+    keyLight.position.set(5, 10, 5);
+    scene.add(keyLight);
+
+    // Fashion show scenes configuration - using gradients instead of heavy EXR files
+    const scenes = [
+      {
+        name: 'LOVE - UNIVERSITY',
+        model: 'Love (Final).gltf',
+        backgroundType: 'gradient',
+        gradientColors: ['#2a1a3a', '#4a3a5a', '#6a5a7a'], // Deep purple university vibes
+        cameraPos: { x: 0, y: 1.5, z: 5 }
+      },
+      {
+        name: 'PURPLE CROWN - STADIUM',
+        model: 'Purple Crown (Final).gltf',
+        backgroundType: 'gradient',
+        gradientColors: ['#1a3a1a', '#2a5a2a', '#4a7a4a'], // Green stadium grass
+        cameraPos: { x: 0, y: 1.5, z: 5 }
+      },
+      {
+        name: 'PINK FLOYD - SPACE',
+        model: 'Pink Floyd (Final).gltf',
+        backgroundType: 'gradient',
+        gradientColors: ['#000000', '#0a0a2a', '#1a1a4a'], // Deep space black to blue
+        cameraPos: { x: 0, y: 1.5, z: 5 }
+      },
+      {
+        name: 'SKYLINE - NYC',
+        model: 'Skyline Final.gltf',
+        backgroundType: 'gradient',
+        gradientColors: ['#1a2a3a', '#2a4a5a', '#4a6a7a'], // NYC skyline blues
+        cameraPos: { x: 0, y: 1.5, z: 5 }
+      },
+      {
+        name: 'YELLOW BRICK - FIELD',
+        model: 'Yellow Brick (final).gltf',
+        backgroundType: 'gradient',
+        gradientColors: ['#3a2a1a', '#5a4a2a', '#7a6a4a'], // Golden field/wheat colors
+        cameraPos: { x: 0, y: 1.5, z: 5 }
+      }
+    ];
+
+    let currentSceneIndex = 0;
+    let currentModel = null;
+    let currentBackground = null;
+    const loader = new GLTFLoader();
+    const exrLoader = new EXRLoader();
+    const hdrLoader = new RGBELoader();
+
+    const sceneLabel = document.getElementById('scene-label');
+    const dots = document.querySelectorAll('.dot');
+
+    function updateLabel(text) {
+      sceneLabel.textContent = text;
+      sceneLabel.classList.add('visible');
+      setTimeout(() => {
+        sceneLabel.classList.remove('visible');
+      }, 3000);
+    }
+
+    function updateProgress(index) {
+      dots.forEach((dot, i) => {
+        dot.classList.toggle('active', i === index);
+      });
+    }
+
+    function loadModel(modelFile, isPinkFloyd = false) {
+      return new Promise((resolve) => {
+        loader.load(modelFile, (gltf) => {
+          const model = gltf.scene;
+
+          // Center and scale
+          const box = new THREE.Box3().setFromObject(model);
+          const center = box.getCenter(new THREE.Vector3());
+          const size = box.getSize(new THREE.Vector3());
+
+          let scale = 2.5 / size.y;
+          if (isPinkFloyd) scale *= 1.05;
+
+          model.scale.setScalar(scale);
+          model.position.x = -center.x * scale;
+          model.position.y = -center.y * scale;
+          model.position.z = -center.z * scale;
+
+          model.traverse((child) => {
+            if (child.isMesh) {
+              child.castShadow = true;
+              child.receiveShadow = true;
+            }
+          });
+
+          resolve(model);
+        });
+      });
+    }
+
+    function loadBackground(bgType, gradientColors) {
+      return new Promise((resolve) => {
+        if (bgType === 'gradient') {
+          // Create gradient canvas
+          const canvas = document.createElement('canvas');
+          canvas.width = 2048;
+          canvas.height = 2048;
+          const ctx = canvas.getContext('2d');
+
+          const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+          gradient.addColorStop(0, gradientColors[0]);
+          gradient.addColorStop(0.5, gradientColors[1]);
+          gradient.addColorStop(1, gradientColors[2]);
+
+          ctx.fillStyle = gradient;
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+          const texture = new THREE.CanvasTexture(canvas);
+          resolve({ texture, type: 'gradient' });
+        }
+      });
+    }
+
+    async function transitionToScene(index) {
+      currentSceneIndex = index;
+      const sceneConfig = scenes[index];
+
+      updateLabel(sceneConfig.name);
+      updateProgress(index);
+
+      // Fade out (optional: add actual fade effect)
+      if (currentModel) {
+        scene.remove(currentModel);
+      }
+      if (currentBackground) {
+        if (currentBackground.type === 'model') {
+          scene.remove(currentBackground.model);
+        }
+      }
+
+      // Load new background
+      const bg = await loadBackground(sceneConfig.backgroundType, sceneConfig.gradientColors);
+      currentBackground = bg;
+
+      if (bg.type === 'gradient') {
+        scene.background = bg.texture;
+        scene.environment = null; // No environment mapping for gradients
+      }
+
+      // Load new model
+      const isPinkFloyd = sceneConfig.model.includes('Pink Floyd');
+      const model = await loadModel(sceneConfig.model, isPinkFloyd);
+      currentModel = model;
+
+      // Start model far away
+      model.position.z = -10;
+
+      scene.add(model);
+
+      // Reset scene timer
+      sceneStartTime = Date.now();
+
+      // Camera position
+      camera.position.set(
+        sceneConfig.cameraPos.x,
+        sceneConfig.cameraPos.y,
+        sceneConfig.cameraPos.z
+      );
+    }
+
+    let sceneStartTime = Date.now();
+    const SCENE_DURATION = 8000; // 8 seconds total per scene
+
+    // Animation loop
+    function animate() {
+      requestAnimationFrame(animate);
+
+      if (currentModel) {
+        const elapsed = Date.now() - sceneStartTime;
+        const t = elapsed / SCENE_DURATION; // 0 to 1 over full scene
+
+        if (t < 0.25) {
+          // Phase 1: Walk forward (0-2 seconds)
+          const phase = t / 0.25; // 0 to 1
+          const eased = easeInOutCubic(phase);
+          currentModel.position.z = -8 + (8 * eased); // -8 to 0
+          currentModel.position.x = 0;
+          currentModel.rotation.y = 0;
+        } else if (t < 0.5) {
+          // Phase 2: Move left (2-4 seconds)
+          const phase = (t - 0.25) / 0.25; // 0 to 1
+          const eased = easeInOutCubic(phase);
+          currentModel.position.z = 0;
+          currentModel.position.x = -2.5 * eased; // 0 to -2.5
+          currentModel.rotation.y = (Math.PI / 8) * eased; // Slight turn left
+        } else if (t < 0.75) {
+          // Phase 3: Move right (4-6 seconds)
+          const phase = (t - 0.5) / 0.25; // 0 to 1
+          const eased = easeInOutCubic(phase);
+          currentModel.position.z = 0;
+          currentModel.position.x = -2.5 + (5 * eased); // -2.5 to 2.5
+          currentModel.rotation.y = Math.PI / 8 - ((Math.PI / 4) * eased); // Turn right
+        } else if (t < 1.0) {
+          // Phase 4: Hold position (6-8 seconds)
+          currentModel.position.z = 0;
+          currentModel.position.x = 2.5;
+          currentModel.rotation.y = -Math.PI / 8;
+        } else {
+          // Transition to next scene
+          const nextIndex = (currentSceneIndex + 1) % scenes.length;
+          transitionToScene(nextIndex);
+        }
+      }
+
+      renderer.render(scene, camera);
+    }
+
+    function easeInOutCubic(t) {
+      return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+    }
+
+    // Handle window resize
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+    // Start the show
+    transitionToScene(0).then(() => {
+      animate();
+    });
+  </script>
+</body>
+</html>
