@@ -4,6 +4,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Clothing Store Showcase</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Work+Sans:wght@400;600;700&display=swap" rel="stylesheet">
   <style>
     * {
       margin: 0;
@@ -22,10 +25,108 @@
       width: 100%;
       height: 100%;
     }
+
+    #info-card {
+      position: fixed;
+      top: 50%;
+      transform: translateY(-50%);
+      background: rgba(255, 255, 255, 0.1);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 20px;
+      padding: 30px 40px;
+      min-width: 400px;
+      max-width: 500px;
+      opacity: 0;
+      pointer-events: none;
+      transition: all 0.5s ease;
+      font-family: 'Work Sans', sans-serif;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+      z-index: 1000;
+    }
+
+    #info-card.visible {
+      opacity: 1;
+    }
+
+    #info-card.left {
+      left: 40px;
+    }
+
+    #info-card.right {
+      right: 40px;
+    }
+
+    #info-card h2 {
+      font-size: 32px;
+      font-weight: 700;
+      margin: 0 0 15px 0;
+      color: #ffffff;
+      text-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+    }
+
+    #info-card .label {
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      color: rgba(255, 255, 255, 0.6);
+      margin: 0 0 8px 0;
+    }
+
+    #info-card .inspiration {
+      font-size: 16px;
+      font-weight: 400;
+      line-height: 1.6;
+      margin: 0 0 20px 0;
+      color: rgba(255, 255, 255, 0.95);
+    }
+
+    #info-card .role {
+      font-size: 15px;
+      font-weight: 500;
+      margin: 0;
+      color: rgba(255, 255, 255, 0.85);
+    }
+
+    #instructions {
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(0, 0, 0, 0.6);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 12px;
+      padding: 15px 25px;
+      color: rgba(255, 255, 255, 0.9);
+      font-size: 14px;
+      font-family: 'Work Sans', sans-serif;
+      z-index: 1000;
+      text-align: center;
+      transition: opacity 0.3s ease;
+    }
+
+    #instructions.hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
   </style>
 </head>
 <body>
   <div id="canvas-container"></div>
+  <div id="info-card">
+    <h2 id="card-title"></h2>
+    <p class="label">Inspiration:</p>
+    <p class="inspiration" id="card-inspiration"></p>
+    <p class="label">Role:</p>
+    <p class="role">Designer</p>
+  </div>
+  <div id="instructions">
+    Click to enter • Arrow keys to move • Mouse to look
+  </div>
 
   <script type="importmap">
     {
@@ -104,10 +205,12 @@
 
     controls.addEventListener('lock', () => {
       console.log('Controls locked - use Arrow Keys to move, mouse to look around');
+      document.getElementById('instructions').classList.add('hidden');
     });
 
     controls.addEventListener('unlock', () => {
       console.log('Controls unlocked - click to re-enter');
+      document.getElementById('instructions').classList.remove('hidden');
     });
 
     scene.add(controls.getObject());
@@ -151,6 +254,38 @@
     ];
     const waypointMarkers = [];
     let isRecordingPath = false;
+
+    // Create visual path line
+    function createPathLine() {
+      const points = pathWaypoints.map(wp => new THREE.Vector3(wp.x, wp.y, wp.z));
+      // Close the loop by adding the first point at the end
+      points.push(new THREE.Vector3(pathWaypoints[0].x, pathWaypoints[0].y, pathWaypoints[0].z));
+
+      const geometry = new THREE.BufferGeometry().setFromPoints(points);
+      const material = new THREE.LineBasicMaterial({
+        color: 0xff00ff,  // Magenta line
+        linewidth: 3,
+        opacity: 0.8,
+        transparent: true
+      });
+      const line = new THREE.Line(geometry, material);
+      scene.add(line);
+
+      // Add sphere markers at each waypoint
+      pathWaypoints.forEach((wp, index) => {
+        const sphereGeometry = new THREE.SphereGeometry(0.2, 16, 16);
+        const sphereMaterial = new THREE.MeshBasicMaterial({
+          color: 0xff00ff,
+          opacity: 0.8,
+          transparent: true
+        });
+        const sphere = new THREE.Mesh(sphereGeometry, sphereMaterial);
+        sphere.position.set(wp.x, wp.y, wp.z);
+        scene.add(sphere);
+      });
+
+      console.log('Path line visualized in magenta');
+    }
 
     document.addEventListener('keydown', (e) => {
       switch(e.code) {
@@ -198,6 +333,14 @@
         case 'KeyL': // Press L to log the complete path
           console.log('Complete path waypoints:', JSON.stringify(pathWaypoints, null, 2));
           break;
+        case 'KeyM': // Press M to mark/log current camera position
+          console.log('📍 Current Position:', {
+            x: camera.position.x.toFixed(2),
+            y: camera.position.y.toFixed(2),
+            z: camera.position.z.toFixed(2)
+          });
+          console.log(`Position (x: ${camera.position.x.toFixed(2)}, y: ${camera.position.y.toFixed(2)}, z: ${camera.position.z.toFixed(2)})`);
+          break;
       }
     });
 
@@ -212,6 +355,42 @@
 
     const loader = new GLTFLoader();
     const clothingModels = [];
+
+    // Clothing info for presentation cards
+    const clothingInfo = {
+      'Love (Final).gltf': {
+        title: 'Love',
+        inspiration: 'Inspired by the famous Love Statue found on the University of Pennsylvania campus'
+      },
+      'Pink Floyd (Final).gltf': {
+        title: 'Pink Floyd',
+        inspiration: 'Inspired by the iconic triangular prism logo and its resemblance to our fraternity emblem'
+      },
+      'Purple Crown (Final).gltf': {
+        title: 'Purple Crown',
+        inspiration: 'Inspired by sports team logos featuring royalty colors and regal symbolism'
+      },
+      'Skyline Final.gltf': {
+        title: 'Skyline',
+        inspiration: 'Inspired by the iconic Philadelphia skyline and city architecture'
+      },
+      'Yellow Brick (final).gltf': {
+        title: 'Yellow Brick Road',
+        inspiration: 'Inspired by The Wizard of Oz, paying homage to the fraternity name OZ'
+      }
+    };
+
+    // Presentation mode variables
+    let presentationMode = true;
+    let presentationPhase = 'moving'; // 'moving', 'rotating', 'displaying'
+    let rotationStartAngle = 0;
+    let rotationTimer = 0;
+    let displayTimer = 0;
+    let pathPauseTime = 0;
+    let presentingItemIndex = -1;
+    const ROTATION_DURATION = 200;
+    const DISPLAY_DURATION = 360; // 6 seconds at 60fps for comfortable reading time
+    const itemsPresentedThisCycle = new Set();
 
     // Load the clothing store
     loader.load('clothing_store.glb', (gltf) => {
@@ -268,6 +447,9 @@
 
       // After store loads, load clothing models at 5% height
       loadClothingModels(targetHeight, scaledSize);
+
+      // Create visual path line
+      // createPathLine(); // Disabled - no need to show path visualization
     });
 
     function createBrickGround(storeSize, storeBox) {
@@ -429,7 +611,8 @@
             baseY: config.position.y,
             phase: index * 0.5,
             pathRadius: pathRadius,
-            startAngle: startAngle
+            startAngle: startAngle,
+            filename: config.file
           });
 
           console.log(`Loaded ${config.file} - pathRadius: ${pathRadius.toFixed(2)}, startAngle: ${startAngle.toFixed(2)}`);
@@ -440,10 +623,34 @@
     // Animation
     let time = 0;
 
+    // Helper function to show/hide info card
+    let currentCardSide = 'left'; // Track which side to show next
+    function showInfoCard(item, itemIndex) {
+      const info = clothingInfo[item.filename];
+      if (info) {
+        document.getElementById('card-title').textContent = info.title;
+        document.getElementById('card-inspiration').textContent = info.inspiration;
+
+        const card = document.getElementById('info-card');
+        // Alternate sides based on item index
+        const side = itemIndex % 2 === 0 ? 'left' : 'right';
+        card.classList.remove('left', 'right');
+        card.classList.add(side);
+        card.classList.add('visible');
+      }
+    }
+
+    function hideInfoCard() {
+      document.getElementById('info-card').classList.remove('visible');
+    }
+
     function animate() {
       requestAnimationFrame(animate);
 
-      time += 0.01;
+      // Only advance time when in moving phase
+      if (presentationPhase === 'moving') {
+        time += 0.01;
+      }
 
       // Handle Arrow Key movement
       if (controls.isLocked) {
@@ -466,6 +673,31 @@
         }
         if (moveState.right) {
           camera.position.addScaledVector(right, -moveSpeed); // Reversed for correct right movement
+        }
+      }
+
+      // Handle presentation mode state machine
+      if (presentationMode && presentationPhase === 'rotating') {
+        rotationTimer++;
+
+        if (presentingItemIndex >= 0 && presentingItemIndex < clothingModels.length) {
+          const item = clothingModels[presentingItemIndex];
+          const rotationProgress = rotationTimer / ROTATION_DURATION;
+          item.container.rotation.y = rotationStartAngle + (rotationProgress * Math.PI * 2);
+
+          if (rotationTimer >= ROTATION_DURATION) {
+            presentationPhase = 'displaying';
+            displayTimer = 0;
+            showInfoCard(item, presentingItemIndex);
+          }
+        }
+      } else if (presentationMode && presentationPhase === 'displaying') {
+        displayTimer++;
+
+        if (displayTimer >= DISPLAY_DURATION) {
+          hideInfoCard();
+          presentationPhase = 'moving';
+          presentingItemIndex = -1;
         }
       }
 
@@ -496,14 +728,52 @@
           item.container.position.x = start.x + (end.x - start.x) * segmentT;
           item.container.position.z = start.z + (end.z - start.z) * segmentT;
 
-          // Face direction of movement
-          const dx = end.x - start.x;
-          const dz = end.z - start.z;
-          const baseRotation = Math.atan2(dx, dz);
+          // Detect when item reaches stopping point on segment 5 (waypoint 5 to 0)
+          // Stop at 60% along segment (aligned with center/midpoint of store, x ≈ 0)
+          const isFrontSegment = (currentSegment === 5);
+          const isAtStoppingPoint = (segmentT >= 0.6 && segmentT < 0.61); // 60% along segment, 1 frame window
 
-          // Add 180-degree rotation along the path (full rotation per complete path loop)
-          const additionalRotation = progress * Math.PI * 2; // Full 360-degree rotation per loop
-          item.container.rotation.y = baseRotation + additionalRotation;
+          if (presentationMode &&
+              presentationPhase === 'moving' &&
+              isFrontSegment &&
+              isAtStoppingPoint &&
+              !itemsPresentedThisCycle.has(index)) {
+
+            // Trigger presentation
+            presentationPhase = 'rotating';
+            presentingItemIndex = index;
+            rotationTimer = 0;
+            itemsPresentedThisCycle.add(index);
+
+            // Store the current rotation angle
+            const dx = end.x - start.x;
+            const dz = end.z - start.z;
+            const baseRotation = Math.atan2(dx, dz);
+            const additionalRotation = progress * Math.PI * 2;
+            rotationStartAngle = baseRotation + additionalRotation;
+
+            console.log(`🎯 Presentation triggered for ${item.filename} at position (${item.container.position.x.toFixed(2)}, ${item.container.position.z.toFixed(2)}), distance: ${distanceToTarget.toFixed(2)}`);
+          }
+
+          // Clear cycle tracking when all items have been presented
+          if (itemsPresentedThisCycle.size === clothingModels.length &&
+              currentSegment === 0 &&
+              segmentT < 0.1) {
+            itemsPresentedThisCycle.clear();
+            console.log('New cycle started - presentation tracking reset');
+          }
+
+          // Only update rotation if not in presentation mode
+          if (presentationPhase === 'moving' || presentingItemIndex !== index) {
+            // Face direction of movement
+            const dx = end.x - start.x;
+            const dz = end.z - start.z;
+            const baseRotation = Math.atan2(dx, dz);
+
+            // Add 180-degree rotation along the path (full rotation per complete path loop)
+            const additionalRotation = progress * Math.PI * 2; // Full 360-degree rotation per loop
+            item.container.rotation.y = baseRotation + additionalRotation;
+          }
         } else {
           // No path - just rotate in place
           item.container.rotation.y += 0.005;
